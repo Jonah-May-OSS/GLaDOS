@@ -34,7 +34,7 @@ sudo rm -f /etc/systemd/system/glados-boot-sounds.service
 
 sudo install -m 0644 "${REPO_ROOT}/services/glados-powerup.service" /etc/systemd/system/glados-powerup.service
 sudo install -m 0644 "${REPO_ROOT}/services/glados-wakeup.service" /etc/systemd/system/glados-wakeup.service
-sudo install -m 0644 "${REPO_ROOT}/services/glados-display.service" /etc/systemd/system/glados-display.service
+sed "s/@GLADOS_USER@/${INSTALL_USER}/g" "${REPO_ROOT}/services/glados-display.service" | sudo tee /etc/systemd/system/glados-display.service >/dev/null
 
 sudo systemctl daemon-reload
 sudo systemctl enable glados-powerup.service
