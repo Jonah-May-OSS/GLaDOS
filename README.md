@@ -348,6 +348,19 @@ sudo journalctl -u glados-powerup.service -n 50 --no-pager
 sudo journalctl -u glados-wakeup.service -n 50 --no-pager
 ```
 
+
+### Log retention
+
+The installer configures systemd-journald with bounded retention so service logs cannot grow without limit:
+
+- Maximum persistent journal size: **200 MB**
+- Keep at least **500 MB** free on the filesystem
+- Maximum runtime journal size: **100 MB**
+- Maximum journal age: **30 days**
+- Existing journal data older than 30 days or beyond the size limit is pruned during installation.
+
+The retention limits apply to the system journal as a whole, not only GLaDOS services.
+
 ## Display
 
 The Waveshare 1.28-inch LCD uses the GC9A01 controller over SPI.
