@@ -41,8 +41,6 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 | Component | Status | Reference |
 |---|---|---|
 | INNOTRIK USB Conference Microphone Speakerphone | ✅ Working | [Amazon](https://www.amazon.com/INNOTRIK-Conference-Microphone-Omnidirectional-Speakerphone/dp/B098DKS637) |
-| USB microphone | ✅ Working | Integrated with USB audio device |
-| USB speaker | ✅ Working | Integrated with USB audio device |
 
 ### Display
 
