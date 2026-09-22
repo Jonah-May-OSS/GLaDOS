@@ -167,6 +167,18 @@ We are using and adapting elements from his work, including STEP/3D design files
 
 Please refer to the original project and its associated files for the applicable licensing and attribution requirements. This repository does not claim ownership of Mr. Volt's original work.
 
+## Software & AI Components
+
+The GLaDOS voice pipeline is built from several open-source projects and model ecosystems:
+
+- **[wyoming-glados](https://github.com/nalf3in/wyoming-glados)** — Wyoming protocol server used to expose the GLaDOS TTS engine to Home Assistant. It is based on the GLaDOS TTS engine from R2D2FISH and is MIT licensed. citeturn3view0
+- **[wyoming-whisper-trt](https://github.com/JonahMMay/wyoming-whisper-trt)** — Wyoming-compatible OpenAI Whisper STT server accelerated with NVIDIA TensorRT. This project is maintained separately by Jonah May. citeturn1search0
+- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** — Local LLM inference engine providing the OpenAI-compatible inference endpoint used by the Home Assistant voice pipeline. llama.cpp is MIT licensed. citeturn0search3turn0search4
+- **[Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm)** — Home Assistant custom integration used to connect Assist to the local OpenAI-compatible llama.cpp server. citeturn5search1
+- **Gemma 4 E4B IT QAT** — The local language model used with llama.cpp and the Local OpenAI LLM integration. Gemma models are subject to Google's Gemma Terms of Use; the project license does not apply to the model weights. citeturn4search8turn4search0
+
+These dependencies are external projects and retain their own licenses and attribution requirements. The MIT license in this repository applies only to original GLaDOS project code and other material that we own and choose to release under that license. Third-party files, models, designs, and other contributed material remain subject to their respective licenses.
+
 ## Development
 
 This project is being developed incrementally on a Raspberry Pi 4 running Debian.
