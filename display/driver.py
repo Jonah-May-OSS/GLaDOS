@@ -1,10 +1,12 @@
 """Hardware adapter for the Waveshare 1.28-inch GC9A01 display."""
 
-from pathlib import Path
 import logging
+import os
+from pathlib import Path
 import sys
 import time
-import os
+
+from PIL import Image
 
 WAVESHARE_DRIVER_DIR = Path("/opt/glados/display/waveshare")
 _LOGGER = logging.getLogger("glados.display.driver")
@@ -12,15 +14,18 @@ _LOGGER = logging.getLogger("glados.display.driver")
 
 class DisplayDriver:
     """Small hardware-neutral wrapper around Waveshare's GC9A01 display."""
+
     WIDTH = 240
     HEIGHT = 240
 
-    def __init__(self):
+    def __init__(self) -> None:
         sys.path.insert(0, str(WAVESHARE_DRIVER_DIR))
         try:
             from lib import LCD_1inch28
         except ImportError as exc:
-            raise RuntimeError("Waveshare driver not installed. Run scripts/install-display.sh first.") from exc
+            raise RuntimeError(
+                "Waveshare driver not installed. Run scripts/install-display.sh first."
+            ) from exc
 
         # Keep the full 240x240 update window for reliable GC9A01 refreshes.
         # Use 12-bit MCU pixel mode to reduce each framebuffer by 25%.
@@ -36,14 +41,18 @@ class DisplayDriver:
         self._lcd.data(0x03)
         self._lcd.clear()
 
-    def _rgb444(self, image):
+    def _rgb444(self, image: Image.Image) -> bytes:
         """Pack two RGB444 pixels into three bytes for GC9A01 12-bit mode."""
         img = self._lcd.np.asarray(image)
         r = self._lcd.np.right_shift(img[..., 0], 4)
         g = self._lcd.np.right_shift(img[..., 1], 4)
         b = self._lcd.np.right_shift(img[..., 2], 4)
 
-        pixels = (r.astype(self._lcd.np.uint16) << 8) | (g.astype(self._lcd.np.uint16) << 4) | b
+        pixels = (
+            r.astype(self._lcd.np.uint16) << 8
+        ) | (
+            g.astype(self._lcd.np.uint16) << 4
+        ) | b
         pixels = pixels.reshape(-1)
 
         if pixels.size % 2:
@@ -60,7 +69,7 @@ class DisplayDriver:
         packed[:, 2] = self._lcd.np.bitwise_and(p1, 0xFF)
         return packed.tobytes()
 
-    def show(self, image):
+    def show(self, image: Image.Image) -> None:
         if image.size != (self.WIDTH, self.HEIGHT):
             raise ValueError("Display image must be exactly 240x240 pixels")
 
@@ -119,9 +128,9 @@ class DisplayDriver:
             y0,
         )
 
-    def clear(self):
+    def clear(self) -> None:
         self._lcd.clear()
 
-    def close(self):
+    def close(self) -> None:
         self._lcd.clear()
         self._lcd.bl_DutyCycle(0)
