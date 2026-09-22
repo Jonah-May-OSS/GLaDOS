@@ -24,7 +24,7 @@ SIZE = (240, 240)
 SPRITE_PATH = Path(__file__).resolve().parent / "assets" / "aperture_sprite.png"
 FRAME_COUNT = 9
 APERTURE_COLOR = (255, 214, 0)
-DISPLAY_X_OFFSET = -10
+DISPLAY_X_OFFSET = -8
 
 LVA_WS_URL = os.getenv("LVA_WS_URL", "ws://127.0.0.1:6055")
 RECONNECT_DELAY = float(os.getenv("LVA_RECONNECT_DELAY", "3"))
