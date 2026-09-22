@@ -10,12 +10,8 @@ from pathlib import Path
 import websockets
 from PIL import Image
 
-try:
-    from .driver import DisplayDriver
-    from .states import DisplayState
-except ImportError:
-    from driver import DisplayDriver
-    from states import DisplayState
+from .driver import DisplayDriver
+from .states import DisplayState
 
 _LOGGER = logging.getLogger("glados.display")
 
