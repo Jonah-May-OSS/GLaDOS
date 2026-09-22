@@ -23,6 +23,7 @@ class DisplayDriver:
             raise RuntimeError("Waveshare driver not installed. Run scripts/install-display.sh first.") from exc
         spi_freq = int(os.getenv("GLADOS_SPI_FREQ", "40000000"))
         self._lcd = LCD_1inch28.LCD_1inch28(spi_freq=spi_freq)
+        self._frame_buffers = {}
         _LOGGER.info("LCD SPI frequency: %d Hz", spi_freq)
         self._lcd.Init()
         self._lcd.bl_DutyCycle(100)
@@ -32,7 +33,26 @@ class DisplayDriver:
         if image.size != (self.WIDTH, self.HEIGHT):
             raise ValueError("Display image must be exactly 240x240 pixels")
         start = time.monotonic()
-        self._lcd.ShowImage(image)
+        key = id(image)
+        if key not in self._frame_buffers:
+            img = self._lcd.np.asarray(image)
+            pix = self._lcd.np.zeros((self.WIDTH, self.HEIGHT, 2), dtype=self._lcd.np.uint8)
+            pix[..., [0]] = self._lcd.np.add(
+                self._lcd.np.bitwise_and(img[..., [0]], 0xF8),
+                self._lcd.np.right_shift(img[..., [1]], 5),
+            )
+            pix[..., [1]] = self._lcd.np.add(
+                self._lcd.np.bitwise_and(self._lcd.np.left_shift(img[..., [1]], 3), 0xE0),
+                self._lcd.np.right_shift(img[..., [2]], 3),
+            )
+            self._frame_buffers[key] = pix.flatten().tolist()
+            _LOGGER.debug("Cached RGB565 frame buffer for image id %d", key)
+
+        self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
+        self._lcd.digital_write(self._lcd.DC_PIN, True)
+        pix = self._frame_buffers[key]
+        for i in range(0, len(pix), 4096):
+            self._lcd.spi_writebyte(pix[i:i + 4096])
         elapsed = time.monotonic() - start
         _LOGGER.debug("LCD frame transfer: %.1f ms", elapsed * 1000)
 
