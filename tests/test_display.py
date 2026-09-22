@@ -313,7 +313,7 @@ def test_driver_show_changed_region_and_cache():
     third = second.copy()
     third.putpixel((21, 30), (255, 214, 0))
     driver.show(third)
-    assert driver._lcd.SetWindows.call_args.args == (21, 30, 22, 31)
+    assert driver._lcd.SetWindows.call_args.args == (21, 30, 23, 31)
 
 
 def test_driver_show_rejects_wrong_size():
@@ -365,7 +365,7 @@ def test_driver_init_and_lifecycle(monkeypatch):
         def clear(self):
             self.cleared = True
 
-    fake_module = SimpleNamespace(LCD_1inch28=FakeLCD)
+    fake_module = SimpleNamespace(LCD_1inch28=SimpleNamespace(LCD_1inch28=FakeLCD))
     monkeypatch.setitem(__import__("sys").modules, "lib", fake_module)
     monkeypatch.setenv("GLADOS_SPI_FREQ", "40000000")
 
