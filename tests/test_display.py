@@ -14,7 +14,6 @@ from display.glados_display import (
     ACTIVE_STATES,
     FRAME_DURATION,
     GladosDisplay,
-    SEQUENCES,
 )
 from display.states import DisplayState
 
@@ -67,7 +66,7 @@ def test_state_changes_reset_animation(display, monkeypatch):
         (DisplayState.SPEAKING, FRAME_DURATION * 9.1, 7),
     ],
 )
-def test_frame_at(display, state, elapsed):
+def test_frame_at(display, state, elapsed, expected):
     display.state = state
     display.state_started = 100.0
     frame, next_due = display._frame_at(100.0 + elapsed)
