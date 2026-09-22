@@ -39,3 +39,6 @@ root = ["."]
 
 [tool.ty.src]
 include = ["display"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
