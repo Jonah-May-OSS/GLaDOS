@@ -1,371 +1,52 @@
 # GLaDOS
 
-A physical GLaDOS-inspired voice assistant head built around a Raspberry Pi 4, Home Assistant, and local voice-assistant infrastructure.
+A physical GLaDOS-inspired voice assistant head built around a Raspberry Pi, Home Assistant, Linux Voice Assistant (LVA), and a small SPI display.
 
 ## Overview
 
-The GLaDOS head is the physical endpoint for a Home Assistant voice assistant. The Raspberry Pi handles the local hardware and audio endpoint while Home Assistant provides the voice-assistant pipeline.
+This repository contains the software that runs on the physical GLaDOS endpoint:
 
-Current architecture:
+- A display renderer for the Waveshare 1.28-inch GC9A01 LCD
+- Integration with LVA's peripheral WebSocket API
+- Boot and startup sound services
+- Installation scripts for the Pi
+- Display artwork and supporting assets
 
-```text
-USB Microphone
-      │
-      ▼
-Linux Voice Assistant (LVA)
-  ├─ Local MicroWakeWord
-  └─ Peripheral WebSocket API
-       │
-       ├──────────────► GLaDOS Display
-       │
-       │ ESPHome API
-       ▼
-Home Assistant
-  └─ NVIDIA-backed Assist pipeline
-       │
-       ▼
-USB Speaker
-```
+The Raspberry Pi acts as the local hardware endpoint. Home Assistant and the voice-assistant services provide the higher-level voice pipeline.
 
-The Raspberry Pi is intentionally **not** responsible for local STT, LLM inference, or TTS. Those workloads remain on the Home Assistant infrastructure.
+### Architecture
+
+~~~text
+USB audio
+   │
+   ▼
+Linux Voice Assistant
+   ├── wake-word detection
+   ├── ESPHome API ───────────────► Home Assistant
+   └── peripheral WebSocket API
+                 │
+                 ▼
+          GLaDOS display
+~~~
+
+The display does not connect directly to Home Assistant. It listens to LVA events over the peripheral WebSocket API.
 
 ## Hardware
 
-### Core
+### Reference hardware
 
-| Component | Status | Reference |
-|---|---|---|
-| Raspberry Pi 4 Model B | ✅ Installed | [Amazon](https://www.amazon.com/s?k=Raspberry+Pi+4+Model+B) |
-| MicroSD storage | ✅ Installed | — |
-| USB-C power supply | ✅ Installed | — |
+The current build uses:
 
-### Audio
+- Raspberry Pi 4 Model B
+- Waveshare 1.28-inch 240×240 GC9A01 LCD
+- USB microphone/speaker
+- Raspberry Pi SPI interface
 
-| Component | Status | Reference |
-|---|---|---|
-| INNOTRIK USB Conference Microphone Speakerphone | ✅ Working | [Amazon](https://www.amazon.com/INNOTRIK-Conference-Microphone-Omnidirectional-Speakerphone/dp/B098DKS637) |
+The repository also contains planned integration for servos and an addressable LED ring, but those components are not required to run the current display and audio software.
 
-### Display
+### Display wiring
 
-| Component | Status | Reference |
-|---|---|---|
-| Waveshare 1.28-inch LCD Module — SPI / GC9A01 / 240×240 IPS | ✅ Wired/tested | [Amazon](https://www.amazon.com/s?k=Waveshare+1.28inch+LCD+Module+GC9A01) |
-
-### Motion
-
-| Component | Status | Reference |
-|---|---|---|
-| Waveshare Servo Driver HAT | 🔧 Integration pending | [Waveshare](https://www.waveshare.com/product/robotics/drivers-sensors/servo-driver-hat.htm) |
-| DSSERVO DS3225 25 kg digital servo | 🔧 Pending | [Amazon](https://www.amazon.com/dp/B07RNFQYD2) |
-| DSSERVO DS3235 35 kg digital servo | 🔧 Pending | [Amazon](https://www.amazon.com/ZOSKAY-Coreless-Digital-Stainless-arduino/dp/B07S9XZYN2) |
-
-### Lighting
-
-| Component | Status | Reference |
-|---|---|---|
-| 16× 5050 addressable RGB LED ring | 🔧 Integration pending | [Amazon](https://www.amazon.com/s?k=16+LED+5050+RGB+NeoPixel+ring) |
-
-The build uses a 16-LED ring with 5050 addressable RGB LEDs.
-
-### Mechanical
-
-- GLaDOS head/body components based on **Mr. Volt's** design
-- 3D-printed components
-- Additional mechanical hardware as required by the final assembly
-
-### Current Hardware Status
-
-| Component | Status |
-|---|---|
-| Raspberry Pi 4 | ✅ Installed |
-| USB audio | ✅ Working |
-| Linux Voice Assistant | ✅ Working |
-| Hey GLaDOS wake word | ✅ Working |
-| Home Assistant Assist | ✅ Working |
-| GC9A01 display | ✅ Wired/tested |
-| GLaDOS display software | ✅ Working; LVA animations and optimized GC9A01 rendering |
-| Servo Driver HAT | 🔧 Integration pending |
-| Servos | 🔧 Integration pending |
-| NeoPixel ring | 🔧 Integration pending |
-
-
-
-## Linux Voice Assistant (LVA) Setup
-
-The Raspberry Pi runs [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant) in Docker. LVA provides:
-
-- Local MicroWakeWord detection
-- The ESPHome API used by Home Assistant
-- The peripheral WebSocket API used by the GLaDOS display
-- USB microphone/speaker access through the host PipeWire/PulseAudio socket
-
-The GLaDOS display connects directly to LVA on **TCP/WebSocket port 6055**. Home Assistant does not need a separate API token for the display.
-
-### Prerequisites
-
-The Pi should have:
-
-- Debian Linux on ARM64
-- Docker Engine
-- Docker Compose v2
-- PipeWire and `pipewire-pulse`
-- The USB microphone/speaker connected and working
-- A persistent user runtime directory for PipeWire
-
-Enable the user runtime to survive boot:
-
-~~~bash
-loginctl enable-linger administrator
-~~~
-
-Verify PipeWire/PulseAudio:
-
-~~~bash
-pactl info
-~~~
-
-The default sink and source should point to the USB audio device.
-
-### Install LVA
-
-Clone the upstream LVA project:
-
-~~~bash
-cd ~
-git clone https://github.com/OHF-Voice/linux-voice-assistant.git
-cd ~/linux-voice-assistant
-cp .env.example .env
-~~~
-
-For the GLaDOS Pi, the important Docker environment is:
-
-~~~dotenv
-LVA_USER_ID="1000"
-LVA_USER_GROUP="1000"
-LVA_PULSE_SERVER="/run/user/${LVA_USER_ID}/pulse/native"
-LVA_XDG_RUNTIME_DIR="/run/user/${LVA_USER_ID}"
-LVA_PULSE_COOKIE="/run/user/${LVA_USER_ID}/pulse/cookie"
-~~~
-
-The upstream Docker Compose configuration uses host networking and provides the ESPHome API on port **6053** and the peripheral WebSocket API on port **6055** by default.
-
-Start LVA:
-
-~~~bash
-docker compose up -d
-~~~
-
-Check it:
-
-~~~bash
-docker compose ps
-docker logs -f linux-voice-assistant
-~~~
-
-Home Assistant should discover the LVA device through the ESPHome integration. Complete the Home Assistant Assist pipeline configuration before testing the physical GLaDOS head.
-
-### Hey GLaDOS wake word
-
-This build uses the custom **Hey GLaDOS** MicroWakeWord model from [TaterTotterson/microWakeWords](https://github.com/TaterTotterson/microWakeWords).
-
-The model configuration is:
-
-~~~yaml
-micro_wake_word:
-  id: mww
-  models:
-    - model: https://github.com/TaterTotterson/microWakeWords/raw/refs/heads/main/microWakeWords/hey_glados.json
-      id: hey_glados
-~~~
-
-The current GLaDOS setup uses:
-
-~~~dotenv
-WAKE_WORD_DIR="app/wakewords/custom"
-WAKE_MODEL="hey_glados"
-~~~
-
-The custom wake-word files are stored in the LVA Docker volume rather than committed to this repository. Do **not** put generated model files or machine-specific Docker volume contents in Git.
-
-After changing the wake-word files or LVA configuration:
-
-~~~bash
-cd ~/linux-voice-assistant
-docker compose restart linux-voice-assistant
-~~~
-
-### LVA peripheral API
-
-LVA is the WebSocket server and hardware peripherals connect as clients:
-
-~~~text
-GLaDOS display
-      │
-      │ WebSocket
-      ▼
-ws://127.0.0.1:6055
-      │
-      ▼
-Linux Voice Assistant
-      │
-      │ ESPHome API
-      ▼
-Home Assistant
-~~~
-
-The display listens for:
-
-| LVA event | Display state |
-|---|---|
-| `wake_word_detected` | Aperture opening |
-| `listening` | Listening animation |
-| `thinking` | Thinking animation |
-| `tts_speaking` | Speaking animation |
-| `tts_finished` / `idle` | Idle |
-| `pipeline_error` | Error flash |
-| `disconnected` | Connection-lost pulse |
-
-LVA sends a state snapshot immediately after the display connects, and the display automatically reconnects if LVA restarts.
-
-For LVA's complete peripheral API documentation, see the [upstream peripheral API documentation](https://github.com/OHF-Voice/linux-voice-assistant/blob/main/docs/peripheral_api.md).
-
-### Docker startup
-
-LVA should be configured with:
-
-~~~bash
-docker compose up -d
-~~~
-
-and configured to restart automatically by the upstream Compose configuration.
-
-The GLaDOS display is managed separately by systemd, so Docker and systemd can restart independently:
-
-~~~text
-Boot
- ├─ PipeWire
- ├─ Docker
- │   └─ Linux Voice Assistant
- │       └─ peripheral API :6055
- │
- └─ glados-display.service
-     └─ connects/reconnects to LVA :6055
-~~~
-
-## Voice Assistant
-
-The Pi runs [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant) in Docker.
-
-The current wake word is:
-
-**Hey GLaDOS**
-
-The custom MicroWakeWord model is based on the model published by Tater Totterson:
-
-https://github.com/TaterTotterson/microWakeWords
-
-The LVA container uses the `latest` image tag and is automatically updated daily by Watchtower. Watchtower is configured to update only the LVA container and clean up replaced images.
-
-## Audio
-
-PipeWire provides the audio session on the Raspberry Pi.
-
-The USB sound device is used for both:
-
-- Microphone input
-- Speaker output
-
-The system uses the user's PipeWire/PulseAudio runtime socket so LVA can access the same audio devices.
-
-## Boot Sounds
-
-The head uses **two systemd services intentionally** so the startup sounds happen at two different points in the boot process:
-
-1. **Early power-up:** `glados-powerup.service` waits only for the USB audio device to appear, then plays `powerup01.wav`.
-2. **Boot complete:** `glados-wakeup.service` runs after `multi-user.target`, then plays `powerup02.wav` followed by `glados_wakeup.wav`.
-
-This gives the intended sequence:
-
-```text
-Pi powers on
-   │
-   └─ glados-powerup.service
-        └─ powerup01.wav
-             │
-             │ ...system continues booting...
-             │
-             └─ glados-wakeup.service
-                  ├─ powerup02.wav
-                  └─ glados_wakeup.wav
-```
-
-The installation scripts place the runtime files under:
-
-```text
-/opt/glados/
-```
-
-The display service connects to the Linux Voice Assistant peripheral WebSocket API on port 6055. This lets the display follow Home Assistant Assist state without a Home Assistant access token or a separate HA API connection.
-
-### Install
-
-From a clone of this repository:
-
-```
-cd ~/GLaDOS
-git pull
-./scripts/install.sh
-```
-
-The installation scripts are tracked as executable files in Git, so a normal checkout should not require `chmod +x`.
-
-> **Raspberry Pi note:** Git can report executable-bit changes as local modifications when `core.filemode` is enabled and the checkout predates the executable-bit fix. On a dedicated Pi checkout, disable file-mode tracking once:
->
-> ```
-> git config core.filemode false
-> ```
->
-> This is a Git working-tree setting, not a `.gitignore` rule; `.gitignore` cannot ignore Unix permission changes.
-
-The installer installs the display dependencies and Waveshare driver, copies the display software to `/opt/glados`, downloads the required sound files, installs/enables the two boot sound services and display service, and starts the display service immediately.
-
-To test the early sound manually:
-
-```
-sudo systemctl start glados-powerup.service
-```
-
-To test the late boot sequence manually:
-
-```
-sudo systemctl start glados-wakeup.service
-```
-
-Check the service logs:
-
-```
-sudo journalctl -u glados-powerup.service -n 50 --no-pager
-sudo journalctl -u glados-wakeup.service -n 50 --no-pager
-```
-
-
-### Log retention
-
-The installer configures systemd-journald with bounded retention so service logs cannot grow without limit:
-
-- Maximum persistent journal size: **200 MB**
-- Keep at least **500 MB** free on the filesystem
-- Maximum runtime journal size: **100 MB**
-- Maximum journal age: **30 days**
-- Existing journal data older than 30 days or beyond the size limit is pruned during installation.
-
-The retention limits apply to the system journal as a whole, not only GLaDOS services.
-
-## Display
-
-The Waveshare 1.28-inch LCD uses the GC9A01 controller over SPI.
-
-Current wiring:
+For the current Waveshare GC9A01 module:
 
 | Display | Raspberry Pi |
 |---|---|
@@ -378,74 +59,256 @@ Current wiring:
 | RST | GPIO27 — pin 13 |
 | BL | GPIO18 — pin 12 |
 
-SPI must be enabled on the Raspberry Pi.
+SPI must be enabled in the Raspberry Pi OS configuration.
 
-The display has been verified using the official Waveshare Python driver and example.
+The display implementation uses the official Waveshare Python driver as a hardware dependency. The driver is downloaded by the display installation script rather than committed to this repository.
 
-The display renderer uses the 240×240 GC9A01 window with 12-bit RGB444 pixel transfers. Animation frames are precomputed and only the changed bounding region between frames is transmitted, reducing SPI traffic while preserving the full display area. The speaking animation opens fully before reversing.
+## Prerequisites
 
-The GLaDOS display service runs at boot and follows LVA events:
+Before installing this repository, provide the following:
 
-- Wake word → aperture opening
-- Listening → listening animation
-- Thinking → thinking animation
-- Speaking → speaking animation
-- Idle → idle aperture
-- Pipeline error → brief error flash
-- LVA/HA disconnected → connection-lost pulse
+### Raspberry Pi
 
-The service automatically reconnects if LVA restarts.
+- Raspberry Pi with a supported 64-bit Debian-based OS
+- Python 3.13 or newer
+- Git
+- Working network access
+- SPI enabled
+- A user account that will own and run the GLaDOS services
 
-## Repository Layout
+### Audio
 
-```text
-GLaDOS/
-├── README.md
-├── services/
-│   ├── glados-powerup.service
-│   ├── glados-wakeup.service
-│   └── glados-display.service
-├── scripts/
-│   ├── install.sh
-│   ├── install-services.sh
-│   ├── download-sounds.sh
-│   └── install-display.sh
-└── sounds/
-```
+- A USB microphone/speaker or other supported audio device
+- PipeWire with the PulseAudio compatibility layer (pipewire-pulse)
+- The audio device working from the host before starting LVA
 
-Additional display, animation, configuration, and hardware-control components will be added as development continues.
+Verify the host can see the audio device with:
 
-## Credits
+~~~bash
+pactl info
+~~~
 
-This project builds on the work of **Mr. Volt (DJ Harrigan / @mr.v0lt)** and his GLaDOS project.
+If pactl is not available, install/configure the host's PipeWire/PulseAudio tools before continuing.
 
-We are using and adapting elements from his work, including STEP/3D design files, code, and hardware/component approaches. His original project was a major reference for the physical design and implementation of this build.
+### LVA
 
-- YouTube: https://www.youtube.com/watch?v=W9VFbfcogbA
-- YouTube channel: https://www.youtube.com/c/MrVolt
-- Instagram: https://www.instagram.com/mr.v0lt/
+Install and configure [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant) separately.
 
-Please refer to the original project and its associated files for the applicable licensing and attribution requirements. This repository does not claim ownership of Mr. Volt's original work.
+LVA must:
 
-## Software & AI Components
+1. Be running on the same host.
+2. Have access to the host audio device.
+3. Expose its peripheral WebSocket API.
+4. Provide the wake-word/audio functionality required by the overall voice-assistant setup.
 
-The GLaDOS voice pipeline is built from several open-source projects and model ecosystems:
+The GLaDOS display defaults to:
 
-- **[wyoming-glados](https://github.com/nalf3in/wyoming-glados)** — Wyoming protocol server used to expose the GLaDOS TTS engine to Home Assistant. It is based on the GLaDOS TTS engine from R2D2FISH and is MIT licensed.
-- **[wyoming-whisper-trt](https://github.com/JonahMMay/wyoming-whisper-trt)** — Wyoming-compatible OpenAI Whisper STT server accelerated with NVIDIA TensorRT. This project is maintained separately by Jonah May.
-- **[llama.cpp](https://github.com/ggml-org/llama.cpp)** — Local LLM inference engine providing the OpenAI-compatible inference endpoint used by the Home Assistant voice pipeline. llama.cpp is MIT licensed.
-- **[Local OpenAI LLM](https://github.com/skye-harris/hass_local_openai_llm)** — Home Assistant custom integration used to connect Assist to the local OpenAI-compatible llama.cpp server.
-- **Gemma 4 E4B IT QAT** — The local language model used with llama.cpp and the Local OpenAI LLM integration. Gemma models are subject to Google's Gemma Terms of Use; the project license does not apply to the model weights.
+~~~text
+ws://127.0.0.1:6055
+~~~
 
-These dependencies are external projects and retain their own licenses and attribution requirements. The MIT license in this repository applies only to original GLaDOS project code and other material that we own and choose to release under that license. Third-party files, models, designs, and other contributed material remain subject to their respective licenses.
+Set "LVA_WS_URL" if LVA is running somewhere else.
+
+### Home Assistant
+
+Home Assistant is not required by the display process itself, but it is part of the intended voice-assistant architecture. Configure the LVA ESPHome device and Home Assistant Assist pipeline according to the LVA and Home Assistant documentation.
+
+## Installation
+
+Clone the repository:
+
+~~~bash
+git clone https://github.com/Jonah-May-OSS/GLaDOS.git
+cd GLaDOS
+~~~
+
+Run the installer as the user that should own the installation:
+
+~~~bash
+./scripts/install.sh
+~~~
+
+The installer:
+
+1. Installs the display's OS-level Python dependencies.
+2. Downloads the Waveshare GC9A01 driver.
+3. Installs the GLaDOS files.
+4. Installs the startup sound files.
+5. Installs and enables the systemd services.
+6. Starts the display service.
+
+The default installation directory is:
+
+~~~text
+/opt/glados
+~~~
+
+Override it with "INSTALL_ROOT":
+
+~~~bash
+INSTALL_ROOT=/some/path ./scripts/install.sh
+~~~
+
+If the installer is run through sudo, the invoking user is used for the service account. To select the account explicitly:
+
+~~~bash
+GLADOS_USER=myuser ./scripts/install.sh
+~~~
+
+The display service runs as that user rather than requiring a particular username.
+
+### Verify the installation
+
+Check the display service:
+
+~~~bash
+sudo systemctl status glados-display.service
+~~~
+
+Follow its logs:
+
+~~~bash
+sudo journalctl -u glados-display.service -f
+~~~
+
+Check the startup sound services:
+
+~~~bash
+sudo systemctl status glados-powerup.service
+sudo systemctl status glados-wakeup.service
+~~~
+
+## Configuration
+
+The display process supports these environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| "LVA_WS_URL" | "ws://127.0.0.1:6055" | LVA peripheral WebSocket endpoint |
+| "LVA_RECONNECT_DELAY" | "3" | Seconds between LVA reconnect attempts |
+| "GLADOS_DISPLAY_FRAME_DURATION" | "0.25" | Animation frame duration |
+| "GLADOS_SPI_FREQ" | "62500000" | SPI frequency in Hz |
+| "LOG_LEVEL" | "INFO" | Python logging level |
+
+The systemd service currently supplies the LVA endpoint. Change the service environment if a non-default endpoint is required.
+
+## Display
+
+The display renderer listens for LVA peripheral events and maps them to display states:
+
+| LVA event | Display state |
+|---|---|
+| "wake_word_detected" | Wake |
+| "listening" | Listening |
+| "thinking" | Thinking |
+| "tts_speaking" | Speaking |
+| "tts_finished" | Idle |
+| "idle" | Idle |
+| "pipeline_error" | Error |
+| "disconnected" | Connection error state |
+
+The renderer automatically reconnects to LVA after a connection failure.
+
+The GC9A01 is driven through a 240×240 window using 12-bit RGB444 transfers. The renderer calculates changed regions between display frames and only sends those regions over SPI when possible.
+
+## Startup sounds
+
+Two systemd services handle startup audio:
+
+- "glados-powerup.service" plays the initial power-up sound once the audio device is available.
+- "glados-wakeup.service" plays the remaining startup sequence after the system reaches the normal multi-user boot target.
+
+The sound files are installed under:
+
+~~~text
+<INSTALL_ROOT>/sounds/
+~~~
+
+The services use ALSA "aplay" to play the installed WAV files.
+
+## Logs
+
+The installer configures systemd-journald with bounded retention:
+
+- Maximum persistent journal size: 200 MB
+- Keep at least 500 MB free
+- Maximum runtime journal size: 100 MB
+- Maximum journal age: 30 days
+
+These limits apply to the system journal as a whole.
 
 ## Development
 
-This project is being developed incrementally on a Raspberry Pi 4 running Debian.
+Create a development environment with [uv](https://docs.astral.sh/uv/):
 
-The goal is to keep the installation reproducible so the physical GLaDOS head can be rebuilt without relying on undocumented manual setup steps.
+~~~bash
+uv sync --dev
+~~~
 
-As components move from experimentation into the stable configuration, their installation and configuration should be represented in this repository.
+Run the quality checks locally:
+
+~~~bash
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check
+~~~
+
+Run the test suite and enforce the CI coverage requirement:
+
+~~~bash
+uv run pytest --cov=display --cov-report=term-missing --cov-fail-under=95
+~~~
+
+The same checks run automatically in GitHub Actions for pushes to main and pull requests.
+
+The repository is intended to contain portable project configuration and installation logic. Machine-specific credentials, Docker volumes, generated wake-word files, local service state, and other host-specific data should not be committed.
+
+## Repository layout
+
+~~~text
+GLaDOS/
+├── .github/
+│   └── workflows/
+├── display/
+│   ├── assets/
+│   ├── driver.py
+│   ├── glados_display.py
+│   └── states.py
+├── scripts/
+│   ├── download-sounds.sh
+│   ├── install-display.sh
+│   ├── install-services.sh
+│   └── install.sh
+├── services/
+│   ├── glados-display.service
+│   ├── glados-powerup.service
+│   └── glados-wakeup.service
+├── sounds/
+├── tests/
+├── pyproject.toml
+└── README.md
+~~~
+
+## Credits
+
+This project builds on the work of **Mr. Volt (DJ Harrigan / @mr.v0lt)** and his GLaDOS project. The physical design and some hardware/component approaches were inspired by that work.
+
+- [Mr. Volt YouTube](https://www.youtube.com/watch?v=W9VFbfcogbA)
+- [Mr. Volt YouTube channel](https://www.youtube.com/c/MrVolt)
+- [Mr. Volt Instagram](https://www.instagram.com/mr.v0lt/)
+
+Please refer to the original project and its associated files for applicable licensing and attribution requirements.
+
+## Third-party software
+
+This project relies on external software and services, including:
+
+- [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant)
+- [Home Assistant](https://www.home-assistant.io/)
+- The Waveshare GC9A01 Python driver
+- Python, Pillow, NumPy, and websockets
+
+Third-party projects retain their own licenses and attribution requirements. The MIT license in this repository applies to original material released by this project.
 
 ## License
 
