@@ -6,8 +6,6 @@ import sys
 import time
 import os
 
-from PIL import ImageChops
-
 WAVESHARE_DRIVER_DIR = Path("/opt/glados/display/waveshare")
 _LOGGER = logging.getLogger("glados.display.driver")
 
@@ -23,11 +21,14 @@ class DisplayDriver:
             from lib import LCD_1inch28
         except ImportError as exc:
             raise RuntimeError("Waveshare driver not installed. Run scripts/install-display.sh first.") from exc
-        spi_freq = int(os.getenv("GLADOS_SPI_FREQ", "40000000"))
+
+        # Keep the full 240x240 update window for reliable GC9A01 refreshes,
+        # but run the SPI bus faster so the complete framebuffer costs less
+        # time on the wire.  62.5 MHz is within the GC9A01's commonly supported
+        # high-speed SPI range and is the next step above the previous 40 MHz.
+        spi_freq = int(os.getenv("GLADOS_SPI_FREQ", "62500000"))
         self._lcd = LCD_1inch28.LCD_1inch28(spi_freq=spi_freq)
         self._frame_buffers = {}
-        self._previous_image = None
-        self._content_bbox = None
         _LOGGER.info("LCD SPI frequency: %d Hz", spi_freq)
         self._lcd.Init()
         self._lcd.bl_DutyCycle(100)
@@ -35,7 +36,10 @@ class DisplayDriver:
 
     def _rgb565(self, image):
         img = self._lcd.np.asarray(image)
-        pix = self._lcd.np.zeros((image.height, image.width, 2), dtype=self._lcd.np.uint8)
+        pix = self._lcd.np.zeros(
+            (image.height, image.width, 2),
+            dtype=self._lcd.np.uint8,
+        )
         pix[..., [0]] = self._lcd.np.add(
             self._lcd.np.bitwise_and(img[..., [0]], 0xF8),
             self._lcd.np.right_shift(img[..., [1]], 5),
@@ -55,9 +59,8 @@ class DisplayDriver:
         if key not in self._frame_buffers:
             self._frame_buffers[key] = self._rgb565(image)
 
-        # GC9A01 updates the complete address window reliably.  Keep every
-        # animation frame a full 240x240 transfer; partial windows can leave
-        # stale pixels/white bars at the edges of the aperture artwork.
+        # Always program the complete 240x240 address window.  Partial
+        # windows can leave stale pixels/white bars at the artwork edges.
         self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
         self._lcd.SPI.writebytes2(self._frame_buffers[key])
@@ -71,8 +74,6 @@ class DisplayDriver:
 
     def clear(self):
         self._lcd.clear()
-        self._previous_image = None
-        self._content_bbox = None
 
     def close(self):
         self._lcd.clear()
