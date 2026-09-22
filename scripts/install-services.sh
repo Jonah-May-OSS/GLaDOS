@@ -19,7 +19,7 @@ sudo install -m 0644 "${REPO_ROOT}/services/glados-display.service" /etc/systemd
 sudo systemctl daemon-reload
 sudo systemctl enable glados-powerup.service
 sudo systemctl enable glados-wakeup.service
-sudo systemctl enable glados-display.service
+sudo systemctl enable --now glados-display.service
 
 echo
 echo "Installed and enabled:"
