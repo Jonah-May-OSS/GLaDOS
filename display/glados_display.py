@@ -24,6 +24,7 @@ SIZE = (240, 240)
 SPRITE_PATH = Path(__file__).resolve().parent / "assets" / "aperture_sprite.png"
 FRAME_COUNT = 9
 APERTURE_COLOR = (255, 214, 0)
+DISPLAY_X_OFFSET = -10
 
 LVA_WS_URL = os.getenv("LVA_WS_URL", "ws://127.0.0.1:6055")
 RECONNECT_DELAY = float(os.getenv("LVA_RECONNECT_DELAY", "3"))
@@ -68,8 +69,10 @@ class GladosDisplay:
                 mask = sprite.crop(
                     (0, top, SIZE[0], top + SIZE[1])
                 ).convert("L")
+                shifted_mask = Image.new("L", SIZE, 0)
+                shifted_mask.paste(mask, (DISPLAY_X_OFFSET, 0))
                 image = Image.new("RGB", SIZE, (0, 0, 0))
-                image.paste(APERTURE_COLOR, mask=mask)
+                image.paste(APERTURE_COLOR, mask=shifted_mask)
                 frames.append(image)
         return frames
 
