@@ -6,7 +6,6 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
 from PIL import Image
 import websockets
@@ -53,7 +52,7 @@ ACTIVE_STATES = {
 class GladosDisplay:
     """Render the GLaDOS aperture and follow LVA voice-assistant events."""
 
-    def __init__(self, driver: Optional[DisplayDriver] = None):
+    def __init__(self, driver: DisplayDriver | None = None):
         self.driver = driver or DisplayDriver()
         self.frames = self._load_frames()
         self.state = DisplayState.IDLE
@@ -124,7 +123,7 @@ class GladosDisplay:
         next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
         return sequence[frame], next_frame_time
 
-    def render(self, now: Optional[float] = None) -> None:
+    def render(self, now: float | None = None) -> None:
         now = now if now is not None else time.monotonic()
         if self.state == DisplayState.ERROR:
             self._render_error(now)
@@ -173,7 +172,7 @@ class GladosDisplay:
                 )
             expected = now
 
-    def _render_task_done(self, task) -> None:
+    def _render_task_done(self, task: asyncio.Task[None]) -> None:
         if task.cancelled():
             _LOGGER.warning("Render task was cancelled")
         elif task.exception() is not None:
@@ -185,10 +184,8 @@ class GladosDisplay:
         """Render whenever the animation frame is due."""
         try:
             while True:
-                loop_started = time.monotonic()
-                now = loop_started
+                now = time.monotonic()
                 self.render(now)
-                render_finished = time.monotonic()
 
                 if self.state == DisplayState.ERROR:
                     delay = 0.05
@@ -270,10 +267,15 @@ def demo() -> None:
             display.set_state(DisplayState.IDLE)
             display.render()
             time.sleep(1.5)
-            for state in (DisplayState.WAKE, DisplayState.LISTENING, DisplayState.THINKING, DisplayState.SPEAKING):
+            for state in (
+                DisplayState.WAKE,
+                DisplayState.LISTENING,
+                DisplayState.THINKING,
+                DisplayState.SPEAKING,
+            ):
                 display.set_state(state)
                 start = time.monotonic()
-                duration = len(SEQUENCES[state]) / FPS
+                duration = len(SEQUENCES[state]) * FRAME_DURATION
                 while time.monotonic() - start < duration:
                     display.render()
                     time.sleep(FRAME_DURATION)
