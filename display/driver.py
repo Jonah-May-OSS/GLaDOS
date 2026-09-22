@@ -48,11 +48,7 @@ class DisplayDriver:
         g = self._lcd.np.right_shift(img[..., 1], 4)
         b = self._lcd.np.right_shift(img[..., 2], 4)
 
-        pixels = (
-            r.astype(self._lcd.np.uint16) << 8
-        ) | (
-            g.astype(self._lcd.np.uint16) << 4
-        ) | b
+        pixels = (r.astype(self._lcd.np.uint16) << 8) | (g.astype(self._lcd.np.uint16) << 4) | b
         pixels = pixels.reshape(-1)
 
         if pixels.size % 2:
