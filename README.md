@@ -66,9 +66,9 @@ The Servo Driver HAT and servos are part of the planned mechanical/animatronic s
 
 | Component | Status | Reference |
 |---|---|---|
-| NeoPixel ring | 🔧 Integration pending | [Adafruit 24-LED NeoPixel Ring](https://www.adafruit.com/product/1586) |
+| NeoPixel ring | 🔧 Integration pending | 16× 5050 addressable RGB LEDs |
 
-The exact NeoPixel ring used in the build may differ from the reference part above.
+The build uses a 16-LED ring with 5050 addressable RGB LEDs.
 
 ### Mechanical
 
