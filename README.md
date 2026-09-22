@@ -59,7 +59,7 @@ For the current Waveshare GC9A01 module:
 | RST | GPIO27 — pin 13 |
 | BL | GPIO18 — pin 12 |
 
-SPI must be enabled in the Raspberry Pi OS configuration.
+SPI must be enabled before installing the display software. On Raspberry Pi OS, run:\n\n~~~bash\nsudo raspi-config\n~~~\n\nSelect **Interface Options → SPI** and enable it, then reboot if prompted. Verify that the SPI device exists before continuing:\n\n~~~bash\nls /dev/spidev0.*\n~~~
 
 The display implementation uses the official Waveshare Python driver as a hardware dependency. The driver is downloaded by the display installation script rather than committed to this repository.
 
@@ -92,7 +92,7 @@ If pactl is not available, install/configure the host's PipeWire/PulseAudio tool
 
 ### LVA
 
-Install and configure [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant) separately.
+Install and configure [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant) separately. Follow its installation documentation for Docker, Compose, audio access, and LVA configuration rather than duplicating those instructions here.
 
 LVA must:
 
