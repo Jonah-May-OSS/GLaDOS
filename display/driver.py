@@ -51,8 +51,23 @@ class DisplayDriver:
         self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
         pix = self._frame_buffers[key]
+        chunk_timings = []
         for i in range(0, len(pix), 4096):
+            chunk_start = time.monotonic()
             self._lcd.spi_writebyte(pix[i:i + 4096])
+            chunk_elapsed = time.monotonic() - chunk_start
+            chunk_timings.append(chunk_elapsed * 1000)
+
+        slow_chunks = [
+            (index, elapsed)
+            for index, elapsed in enumerate(chunk_timings)
+            if elapsed > 2.0
+        ]
+        if slow_chunks:
+            _LOGGER.debug(
+                "Slow LCD SPI chunks: %s",
+                ", ".join(f"#{index}={elapsed:.1f} ms" for index, elapsed in slow_chunks),
+            )
         elapsed = time.monotonic() - start
         _LOGGER.debug("LCD frame transfer: %.1f ms", elapsed * 1000)
 
