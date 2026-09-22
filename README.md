@@ -56,8 +56,6 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 | DSSERVO DS3225 25 kg digital servo | 🔧 Pending | [Amazon](https://www.amazon.com/dp/B07RNFQYD2) |
 | DSSERVO DS3235 35 kg digital servo | 🔧 Pending | [Amazon](https://www.amazon.com/ZOSKAY-Coreless-Digital-Stainless-arduino/dp/B07S9XZYN2) |
 
-The Servo Driver HAT and servos are part of the planned mechanical/animatronic system. Exact component links will be documented once the final hardware configuration is established.
-
 ### Lighting
 
 | Component | Status | Reference |
