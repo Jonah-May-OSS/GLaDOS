@@ -1,0 +1,12 @@
+[Unit]
+Description=GLaDOS Boot Complete Sounds
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'sleep 2; aplay -D plughw:CARD=Device /opt/glados/sounds/powerup02.wav; aplay -D plughw:CARD=Device /opt/glados/sounds/glados_wakeup.wav'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
