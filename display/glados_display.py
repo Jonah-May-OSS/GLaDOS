@@ -7,8 +7,8 @@ import os
 import time
 from pathlib import Path
 
-from PIL import Image
 import websockets
+from PIL import Image
 
 try:
     from .driver import DisplayDriver
