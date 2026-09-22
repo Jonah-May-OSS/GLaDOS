@@ -24,18 +24,20 @@ SIZE = (240, 240)
 SPRITE_PATH = Path(__file__).resolve().parent / "assets" / "aperture_sprite.png"
 FRAME_COUNT = 9
 APERTURE_COLOR = (255, 214, 0)
+DISPLAY_X_OFFSET = -5
 
 LVA_WS_URL = os.getenv("LVA_WS_URL", "ws://127.0.0.1:6055")
 RECONNECT_DELAY = float(os.getenv("LVA_RECONNECT_DELAY", "3"))
-FPS = float(os.getenv("GLADOS_DISPLAY_FPS", "12"))
-FRAME_DURATION = float(os.getenv("GLADOS_DISPLAY_FRAME_DURATION", "0.5"))
+FRAME_DURATION = float(os.getenv("GLADOS_DISPLAY_FRAME_DURATION", "0.25"))
+LOOP_HEARTBEAT_INTERVAL = 0.1
+LOOP_HEARTBEAT_WARN = 0.25
 
 SEQUENCES = {
     DisplayState.IDLE: (0,),
     DisplayState.WAKE: (0, 1, 2, 3, 4, 5, 6, 7, 8),
     DisplayState.LISTENING: (8, 7, 6, 5, 4, 3, 2, 1, 0),
     DisplayState.THINKING: (0, 2, 4, 6, 8, 7, 5, 3, 1),
-    DisplayState.SPEAKING: (1, 2, 3, 4, 5, 6, 7, 8, 0),
+    DisplayState.SPEAKING: (0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1),
 }
 
 ACTIVE_STATES = {
@@ -65,11 +67,11 @@ class GladosDisplay:
         with Image.open(SPRITE_PATH) as sprite:
             for index in range(FRAME_COUNT):
                 top = index * SIZE[1]
-                mask = sprite.crop(
-                    (0, top, SIZE[0], top + SIZE[1])
-                ).convert("L")
+                mask = sprite.crop((0, top, SIZE[0], top + SIZE[1])).convert("L")
+                shifted_mask = Image.new("L", SIZE, 0)
+                shifted_mask.paste(mask, (DISPLAY_X_OFFSET, 0))
                 image = Image.new("RGB", SIZE, (0, 0, 0))
-                image.paste(APERTURE_COLOR, mask=mask)
+                image.paste(APERTURE_COLOR, mask=shifted_mask)
                 frames.append(image)
         return frames
 
@@ -110,21 +112,25 @@ class GladosDisplay:
             self.driver.clear()
             self._last_frame_key = None
 
+    def _frame_at(self, now: float) -> tuple[int, float]:
+        """Return the current frame index and when the next frame is due."""
+        sequence = SEQUENCES[self.state]
+        elapsed = max(0.0, now - self.state_started)
+        frame = int(elapsed / FRAME_DURATION)
+        if self.state == DisplayState.WAKE:
+            frame = min(frame, len(sequence) - 1)
+        else:
+            frame %= len(sequence)
+        next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
+        return sequence[frame], next_frame_time
+
     def render(self, now: Optional[float] = None) -> None:
         now = now if now is not None else time.monotonic()
-
         if self.state == DisplayState.ERROR:
             self._render_error(now)
             return
-
-        sequence = SEQUENCES[self.state]
-        elapsed = max(0.0, now - self.state_started)
-        frame = min(int(elapsed / FRAME_DURATION), len(sequence) - 1)
-
-        if self.state != DisplayState.WAKE:
-            frame %= len(sequence)
-
-        self._show_frame(sequence[frame])
+        frame_index, _ = self._frame_at(now)
+        self._show_frame(frame_index)
 
     def handle_event(self, event: str, data: dict) -> None:
         if event == "snapshot":
@@ -135,39 +141,73 @@ class GladosDisplay:
                 self.connection_lost = True
                 self.set_state(DisplayState.ERROR)
             return
-
         if event == "disconnected":
             self.connection_lost = True
             self.set_state(DisplayState.ERROR)
             return
-
         if event == "zeroconf":
             if data.get("status") == "connected":
                 self.connection_lost = False
                 self.set_state(DisplayState.IDLE)
             return
-
         if event == "pipeline_error":
             self.connection_lost = False
             self.set_state(DisplayState.ERROR)
             return
-
         if event in ACTIVE_STATES:
             self.connection_lost = False
             self.set_state(ACTIVE_STATES[event])
 
-    async def _render_loop(self) -> None:
-        """Render continuously at the configured frame rate."""
-        interval = 1.0 / max(FPS, 1.0)
-
+    async def _event_loop_heartbeat(self) -> None:
+        """Detect long periods where this asyncio event loop cannot run."""
+        expected = time.monotonic()
         while True:
-            self.render()
-            await asyncio.sleep(interval)
+            await asyncio.sleep(LOOP_HEARTBEAT_INTERVAL)
+            now = time.monotonic()
+            lag = now - expected - LOOP_HEARTBEAT_INTERVAL
+            if lag >= LOOP_HEARTBEAT_WARN:
+                _LOGGER.warning(
+                    "EVENT LOOP STALL: %.3f s (state=%s)",
+                    lag,
+                    self.state.value,
+                )
+            expected = now
+
+    def _render_task_done(self, task) -> None:
+        if task.cancelled():
+            _LOGGER.warning("Render task was cancelled")
+        elif task.exception() is not None:
+            _LOGGER.error("Render task CRASHED: %r", task.exception())
+        else:
+            _LOGGER.error("Render task exited unexpectedly")
+
+    async def _render_loop(self) -> None:
+        """Render whenever the animation frame is due."""
+        try:
+            while True:
+                loop_started = time.monotonic()
+                now = loop_started
+                self.render(now)
+                render_finished = time.monotonic()
+
+                if self.state == DisplayState.ERROR:
+                    delay = 0.05
+                else:
+                    _, next_frame_time = self._frame_at(now)
+                    delay = max(0.001, next_frame_time - time.monotonic())
+
+                await asyncio.sleep(delay)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception("Display render loop crashed")
+            raise
 
     async def run(self) -> None:
-        """Receive LVA events while the renderer runs independently."""
         render_task = asyncio.create_task(self._render_loop())
-
+        render_task.add_done_callback(self._render_task_done)
+        heartbeat_task = asyncio.create_task(self._event_loop_heartbeat())
         try:
             while True:
                 try:
@@ -179,20 +219,17 @@ class GladosDisplay:
                     ) as ws:
                         _LOGGER.info("Connected to LVA peripheral API")
                         self.connection_lost = False
-
                         async for raw in ws:
                             try:
                                 message = json.loads(raw)
                             except json.JSONDecodeError:
                                 _LOGGER.warning("Ignoring invalid LVA message: %r", raw)
                                 continue
-
                             event = message.get("event", "")
                             data = message.get("data") or {}
                             if event:
                                 _LOGGER.debug("LVA event: %s %s", event, data)
                                 self.handle_event(event, data)
-
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
@@ -206,10 +243,8 @@ class GladosDisplay:
                     await asyncio.sleep(RECONNECT_DELAY)
         finally:
             render_task.cancel()
-            try:
-                await render_task
-            except asyncio.CancelledError:
-                pass
+            heartbeat_task.cancel()
+            await asyncio.gather(render_task, heartbeat_task, return_exceptions=True)
             self.close()
 
     def close(self) -> None:
@@ -224,7 +259,6 @@ async def main() -> None:
         level=os.getenv("LOG_LEVEL", "INFO").upper(),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-
     display = GladosDisplay()
     await display.run()
 
@@ -236,18 +270,13 @@ def demo() -> None:
             display.set_state(DisplayState.IDLE)
             display.render()
             time.sleep(1.5)
-            for state in (
-                DisplayState.WAKE,
-                DisplayState.LISTENING,
-                DisplayState.THINKING,
-                DisplayState.SPEAKING,
-            ):
+            for state in (DisplayState.WAKE, DisplayState.LISTENING, DisplayState.THINKING, DisplayState.SPEAKING):
                 display.set_state(state)
                 start = time.monotonic()
                 duration = len(SEQUENCES[state]) / FPS
                 while time.monotonic() - start < duration:
                     display.render()
-                    time.sleep(1 / max(FPS, 1.0))
+                    time.sleep(FRAME_DURATION)
     except KeyboardInterrupt:
         pass
     finally:
