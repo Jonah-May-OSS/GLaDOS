@@ -279,19 +279,25 @@ The system uses the user's PipeWire/PulseAudio runtime socket so LVA can access 
 
 ## Boot Sounds
 
-The head currently plays a short startup sequence when the Pi boots:
+The head uses **two systemd services intentionally** so the startup sounds happen at two different points in the boot process:
 
-1. Power-up sound
-2. Second power-up sound
-3. GLaDOS wake-up sound
+1. **Early power-up:** `glados-powerup.service` waits only for the USB audio device to appear, then plays `powerup01.wav`.
+2. **Boot complete:** `glados-wakeup.service` runs after `multi-user.target`, then plays `powerup02.wav` followed by `glados_wakeup.wav`.
 
-The boot sequence is managed by `services/glados-boot-sounds.service` and plays the three clips in order:
+This gives the intended sequence:
 
-1. `powerup01.wav`
-2. `powerup02.wav`
-3. `glados_wakeup.wav`
-
-The service waits for the USB audio device to appear before starting playback, then plays each clip sequentially. This avoids the two independent boot services racing each other or starting before the USB audio device is ready.
+```text
+Pi powers on
+   │
+   └─ glados-powerup.service
+        └─ powerup01.wav
+             │
+             │ ...system continues booting...
+             │
+             └─ glados-wakeup.service
+                  ├─ powerup02.wav
+                  └─ glados_wakeup.wav
+```
 
 The installation scripts place the runtime files under:
 
@@ -305,7 +311,7 @@ The display service connects to the Linux Voice Assistant peripheral WebSocket A
 
 From a clone of this repository:
 
-```bash
+```
 cd ~/GLaDOS
 git pull
 ./scripts/install.sh
@@ -315,24 +321,31 @@ The installation scripts are tracked as executable files in Git, so a normal che
 
 > **Raspberry Pi note:** Git can report executable-bit changes as local modifications when `core.filemode` is enabled and the checkout predates the executable-bit fix. On a dedicated Pi checkout, disable file-mode tracking once:
 >
-> ```bash
+> ```
 > git config core.filemode false
 > ```
 >
 > This is a Git working-tree setting, not a `.gitignore` rule; `.gitignore` cannot ignore Unix permission changes.
 
-The installer installs the display dependencies and Waveshare driver, copies the display software to `/opt/glados`, downloads the required sound files, installs/enables the systemd services, and starts the display service immediately.
+The installer installs the display dependencies and Waveshare driver, copies the display software to `/opt/glados`, downloads the required sound files, installs/enables the two boot sound services and display service, and starts the display service immediately.
 
-To test the boot sequence manually without rebooting:
+To test the early sound manually:
 
-```bash
-sudo systemctl start glados-boot-sounds.service
+```
+sudo systemctl start glados-powerup.service
 ```
 
-Check its log:
+To test the late boot sequence manually:
 
-```bash
-sudo journalctl -u glados-boot-sounds.service -n 50 --no-pager
+```
+sudo systemctl start glados-wakeup.service
+```
+
+Check the service logs:
+
+```
+sudo journalctl -u glados-powerup.service -n 50 --no-pager
+sudo journalctl -u glados-wakeup.service -n 50 --no-pager
 ```
 
 ## Display
@@ -374,7 +387,8 @@ The service automatically reconnects if LVA restarts.
 GLaDOS/
 ├── README.md
 ├── services/
-│   ├── glados-boot-sounds.service
+│   ├── glados-powerup.service
+│   ├── glados-wakeup.service
 │   └── glados-display.service
 ├── scripts/
 │   ├── install.sh
