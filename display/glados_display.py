@@ -16,6 +16,7 @@ except ImportError:
 SIZE = (240, 240)
 SPRITE_PATH = Path(__file__).resolve().parent / "assets" / "aperture_sprite.png"
 FRAME_COUNT = 9
+APERTURE_COLOR = (255, 214, 0)
 
 
 class GladosDisplay:
@@ -27,7 +28,13 @@ class GladosDisplay:
     def _load_frame(index: int) -> Image.Image:
         with Image.open(SPRITE_PATH) as sprite:
             top = (index % FRAME_COUNT) * SIZE[1]
-            return sprite.crop((0, top, SIZE[0], top + SIZE[1])).convert("RGB")
+            frame = sprite.crop((0, top, SIZE[0], top + SIZE[1])).convert("L")
+        # Aperture.h is a 1-bit bitmap, so it contains shape information but
+        # no color. Render the source-derived white pixels in GLaDOS yellow.
+        mask = frame.point(lambda pixel: 255 if pixel else 0)
+        image = Image.new("RGB", SIZE, (0, 0, 0))
+        image.paste(APERTURE_COLOR, mask=mask)
+        return image
 
     def render(self, state: DisplayState, frame: int = 0) -> None:
         # Aperture.h contains one complete aperture plus eight individual
