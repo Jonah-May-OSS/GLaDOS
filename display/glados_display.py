@@ -164,7 +164,8 @@ class GladosDisplay:
         """Render whenever the animation frame is due."""
         try:
             while True:
-                now = time.monotonic()
+                loop_started = time.monotonic()
+                now = loop_started
                 self.render(now)
 
                 if self.state == DisplayState.ERROR:
@@ -182,7 +183,26 @@ class GladosDisplay:
                     next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
                     delay = max(0.001, next_frame_time - time.monotonic())
 
+                if delay > FRAME_DURATION * 2:
+                    _LOGGER.warning(
+                        "Render loop calculated long sleep: %.3f s (state=%s)",
+                        delay,
+                        self.state.value,
+                    )
+
                 await asyncio.sleep(delay)
+
+                loop_delay = time.monotonic() - loop_started
+                expected = delay
+                scheduler_lag = loop_delay - expected
+                if scheduler_lag > 0.5:
+                    _LOGGER.warning(
+                        "Render loop woke %.3f s late (slept %.3f s, total loop %.3f s, state=%s)",
+                        scheduler_lag,
+                        expected,
+                        loop_delay,
+                        self.state.value,
+                    )
         except asyncio.CancelledError:
             raise
         except Exception:
