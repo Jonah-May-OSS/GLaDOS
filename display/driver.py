@@ -51,56 +51,22 @@ class DisplayDriver:
             raise ValueError("Display image must be exactly 240x240 pixels")
 
         start = time.monotonic()
-
-        if self._previous_image is None:
-            dirty = image.getbbox()
-            if dirty is None:
-                dirty = (0, 0, self.WIDTH, self.HEIGHT)
-            self._content_bbox = dirty
-        else:
-            # The diff bbox is the minimal rectangle containing pixels that
-            # changed between the previous and current frame.
-            dirty = ImageChops.difference(self._previous_image, image).getbbox()
-            if dirty is None:
-                _LOGGER.debug("LCD frame unchanged; skipping transfer")
-                self._previous_image = image.copy()
-                return
-
-            # Keep the update inside the established artwork bounds.
-            if self._content_bbox is not None:
-                left = max(dirty[0], self._content_bbox[0])
-                top = max(dirty[1], self._content_bbox[1])
-                right = min(dirty[2], self._content_bbox[2])
-                bottom = min(dirty[3], self._content_bbox[3])
-                dirty = (left, top, right, bottom)
-
-        left, top, right, bottom = dirty
-        crop = image.crop(dirty)
-        key = (id(image), dirty)
+        key = id(image)
         if key not in self._frame_buffers:
-            self._frame_buffers[key] = self._rgb565(crop)
-            _LOGGER.debug(
-                "Cached RGB565 dirty region for image id %d: %dx%d (%d bytes)",
-                key,
-                right - left,
-                bottom - top,
-                len(self._frame_buffers[key]),
-            )
+            self._frame_buffers[key] = self._rgb565(image)
 
-        self._lcd.SetWindows(left, top, right, bottom)
+        # GC9A01 updates the complete address window reliably.  Keep every
+        # animation frame a full 240x240 transfer; partial windows can leave
+        # stale pixels/white bars at the edges of the aperture artwork.
+        self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
-        pix = self._frame_buffers[key]
-        self._lcd.SPI.writebytes2(pix)
-
-        self._previous_image = image.copy()
+        self._lcd.SPI.writebytes2(self._frame_buffers[key])
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
-            "LCD dirty transfer: %.1f ms (%dx%d, %d bytes)",
+            "LCD full-frame transfer: %.1f ms (%d bytes)",
             elapsed * 1000,
-            right - left,
-            bottom - top,
-            len(pix),
+            len(self._frame_buffers[key]),
         )
 
     def clear(self):
