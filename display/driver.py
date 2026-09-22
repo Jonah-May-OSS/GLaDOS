@@ -65,24 +65,27 @@ class DisplayDriver:
             raise ValueError("Display image must be exactly 240x240 pixels")
 
         start = time.monotonic()
-        pixels = self._lcd.np.asarray(image)
 
-        # Precompute the changed region and packed transfer buffer for each
-        # animation frame. Frames are immutable, so the expensive comparison,
-        # crop, and RGB444 conversion only happen once per image transition.
-        key = id(image)
-        if key not in self._frame_buffers:
-            if not hasattr(self, "_last_pixels"):
+        # The transfer depends on both the previous and current frame.
+        # A frame can have a different changed region depending on which
+        # animation frame preceded it, so cache transitions, not images.
+        previous = getattr(self, "_last_image", None)
+        transition_key = (id(previous), id(image))
+
+        if transition_key not in self._frame_buffers:
+            if previous is None:
                 x0, y0, x1, y1 = 0, 0, self.WIDTH, self.HEIGHT
+                crop = image
             else:
-                changed = self._lcd.np.any(pixels != self._last_pixels, axis=2)
-                ys, xs = self._lcd.np.nonzero(changed)
-                if len(xs) == 0:
-                    self._last_pixels = pixels.copy()
+                from PIL import ImageChops
+
+                diff = ImageChops.difference(previous, image)
+                bbox = diff.getbbox()
+                if bbox is None:
+                    self._last_image = image
                     return
 
-                x0, x1 = int(xs.min()), int(xs.max()) + 1
-                y0, y1 = int(ys.min()), int(ys.max()) + 1
+                x0, y0, x1, y1 = bbox
 
                 # RGB444 packs two pixels into three bytes. Keep the rectangle
                 # at an even pixel count so the transfer ends cleanly.
@@ -94,15 +97,16 @@ class DisplayDriver:
                     else:
                         y1 += 1
 
-            crop = image.crop((x0, y0, x1, y1))
-            buffer = self._rgb444(crop)
-            self._frame_buffers[key] = (x0, y0, x1, y1, buffer)
-            self._last_pixels = pixels.copy()
+                crop = image.crop((x0, y0, x1, y1))
 
-        x0, y0, x1, y1, buffer = self._frame_buffers[key]
+            buffer = self._rgb444(crop)
+            self._frame_buffers[transition_key] = (x0, y0, x1, y1, buffer)
+
+        x0, y0, x1, y1, buffer = self._frame_buffers[transition_key]
         self._lcd.SetWindows(x0, y0, x1, y1)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
         self._lcd.SPI.writebytes2(buffer)
+        self._last_image = image
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
