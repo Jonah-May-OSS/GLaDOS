@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=@GLADOS_USER@
 Group=@GLADOS_USER@
-WorkingDirectory=/opt/glados
+WorkingDirectory=@INSTALL_ROOT@
 Environment=PYTHONUNBUFFERED=1
 Environment=LVA_WS_URL=ws://127.0.0.1:6055
 ExecStart=/usr/bin/python3 -m display.glados_display
