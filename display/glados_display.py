@@ -28,6 +28,7 @@ APERTURE_COLOR = (255, 214, 0)
 LVA_WS_URL = os.getenv("LVA_WS_URL", "ws://127.0.0.1:6055")
 RECONNECT_DELAY = float(os.getenv("LVA_RECONNECT_DELAY", "3"))
 FPS = float(os.getenv("GLADOS_DISPLAY_FPS", "12"))
+FRAME_DURATION = float(os.getenv("GLADOS_DISPLAY_FRAME_DURATION", "0.5"))
 
 SEQUENCES = {
     DisplayState.IDLE: (0,),
@@ -118,7 +119,7 @@ class GladosDisplay:
 
         sequence = SEQUENCES[self.state]
         elapsed = max(0.0, now - self.state_started)
-        frame = min(int(elapsed * FPS), len(sequence) - 1)
+        frame = min(int(elapsed / FRAME_DURATION), len(sequence) - 1)
 
         if self.state != DisplayState.WAKE:
             frame %= len(sequence)
