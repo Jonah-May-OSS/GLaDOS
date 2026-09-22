@@ -25,4 +25,4 @@ sudo cp "$REPO_ROOT"/display/{__init__.py,states.py,driver.py,glados_display.py}
 sudo chown -R administrator:administrator /opt/glados/display
 
 echo "Display software installed under /opt/glados/display"
-echo "Run: cd /opt/glados/display && python3 glados_display.py"
+echo "Run: cd /opt/glados && python3 -m display.glados_display"
