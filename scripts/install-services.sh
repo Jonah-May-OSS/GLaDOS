@@ -3,14 +3,15 @@ set -euo pipefail
 
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/glados}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INSTALL_USER="${GLADOS_USER:-${SUDO_USER:-$(id -un)}}"
 
 echo "Installing GLaDOS files to ${INSTALL_ROOT}..."
 
-sudo mkdir -p "\${INSTALL_ROOT}/sounds"
-sudo mkdir -p "\${INSTALL_ROOT}/services"
+sudo mkdir -p "${INSTALL_ROOT}/sounds"
+sudo mkdir -p "${INSTALL_ROOT}/services"
 
-sudo cp -a "\${REPO_ROOT}/services/." "\${INSTALL_ROOT}/services/"
-sudo cp -a "\${REPO_ROOT}/sounds/." "\${INSTALL_ROOT}/sounds/" 2>/dev/null || true
+sudo cp -a "${REPO_ROOT}/services/." "${INSTALL_ROOT}/services/"
+sudo cp -a "${REPO_ROOT}/sounds/." "${INSTALL_ROOT}/sounds/" 2>/dev/null || true
 
 # Keep systemd journal growth bounded so the Pi cannot fill its storage with
 # service logs. These limits apply to the system journal as a whole.
@@ -34,7 +35,7 @@ sudo rm -f /etc/systemd/system/glados-boot-sounds.service
 
 sudo install -m 0644 "${REPO_ROOT}/services/glados-powerup.service" /etc/systemd/system/glados-powerup.service
 sudo install -m 0644 "${REPO_ROOT}/services/glados-wakeup.service" /etc/systemd/system/glados-wakeup.service
-sudo install -m 0644 "${REPO_ROOT}/services/glados-display.service" /etc/systemd/system/glados-display.service
+sed -e "s|@GLADOS_USER@|${INSTALL_USER}|g" -e "s|@INSTALL_ROOT@|${INSTALL_ROOT}|g" "${REPO_ROOT}/services/glados-display.service" | sudo tee /etc/systemd/system/glados-display.service >/dev/null
 
 sudo systemctl daemon-reload
 sudo systemctl enable glados-powerup.service

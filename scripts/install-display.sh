@@ -2,7 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-INSTALL_DIR="/opt/glados/display"
+INSTALL_ROOT="${INSTALL_ROOT:-/opt/glados}"
+INSTALL_DIR="${INSTALL_ROOT}/display"
 WAVESHARE_DIR="$INSTALL_DIR/waveshare"
 ZIP_URL="https://files.waveshare.com/upload/8/8d/LCD_Module_RPI_code.zip"
 TMP_DIR="$(mktemp -d)"
@@ -26,7 +27,8 @@ sudo rm -rf "$WAVESHARE_DIR/lib"
 sudo cp -a "$SOURCE_DIR/lib" "$WAVESHARE_DIR/"
 sudo mkdir -p "$INSTALL_DIR"
 sudo cp -a "$REPO_ROOT/display/." "$INSTALL_DIR/"
-sudo chown -R administrator:administrator "$INSTALL_DIR"
+INSTALL_USER="${GLADOS_USER:-${SUDO_USER:-$(id -un)}}"
+sudo chown -R "$INSTALL_USER:$INSTALL_USER" "$INSTALL_ROOT"
 
 echo
 echo "Display software installed under $INSTALL_DIR"

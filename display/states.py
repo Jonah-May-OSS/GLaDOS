@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class DisplayState(str, Enum):
+class DisplayState(StrEnum):
     IDLE = "idle"
     WAKE = "wake"
     LISTENING = "listening"
