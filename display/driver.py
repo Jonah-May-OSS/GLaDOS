@@ -18,6 +18,7 @@ class DisplayDriver:
             raise RuntimeError("Waveshare driver not installed. Run scripts/install-display.sh first.") from exc
         self._lcd = LCD_1inch28.LCD_1inch28()
         self._lcd.Init()
+        self._lcd.bl_DutyCycle(100)
         self._lcd.clear()
 
     def show(self, image):
@@ -30,3 +31,4 @@ class DisplayDriver:
 
     def close(self):
         self._lcd.clear()
+        self._lcd.bl_DutyCycle(0)
