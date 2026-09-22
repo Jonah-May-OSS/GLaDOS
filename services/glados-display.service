@@ -7,7 +7,6 @@ Wants=network-online.target
 Type=simple
 User=administrator
 Group=administrator
-SupplementaryGroups=gpio
 WorkingDirectory=/opt/glados
 Environment=PYTHONUNBUFFERED=1
 Environment=LVA_WS_URL=ws://127.0.0.1:6055
