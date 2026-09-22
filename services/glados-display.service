@@ -1,0 +1,18 @@
+[Unit]
+Description=GLaDOS Display Controller
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=administrator
+Group=administrator
+WorkingDirectory=/opt/glados
+Environment=PYTHONUNBUFFERED=1
+Environment=LVA_WS_URL=ws://127.0.0.1:6055
+ExecStart=/usr/bin/python3 -m display.glados_display
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

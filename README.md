@@ -13,7 +13,10 @@ USB Microphone
       │
       ▼
 Linux Voice Assistant (LVA)
-  └─ Local MicroWakeWord
+  ├─ Local MicroWakeWord
+  └─ Peripheral WebSocket API
+       │
+       ├──────────────► GLaDOS Display
        │
        │ ESPHome API
        ▼
@@ -80,11 +83,174 @@ The build uses a 16-LED ring with 5050 addressable RGB LEDs.
 | Hey GLaDOS wake word | ✅ Working |
 | Home Assistant Assist | ✅ Working |
 | GC9A01 display | ✅ Wired/tested |
-| GLaDOS display software | 🚧 In development |
+| GLaDOS display software | 🚧 Integration complete; hardware/animation testing |
 | Servo Driver HAT | 🔧 Integration pending |
 | Servos | 🔧 Integration pending |
 | NeoPixel ring | 🔧 Integration pending |
 
+
+
+## Linux Voice Assistant (LVA) Setup
+
+The Raspberry Pi runs [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant) in Docker. LVA provides:
+
+- Local MicroWakeWord detection
+- The ESPHome API used by Home Assistant
+- The peripheral WebSocket API used by the GLaDOS display
+- USB microphone/speaker access through the host PipeWire/PulseAudio socket
+
+The GLaDOS display connects directly to LVA on **TCP/WebSocket port 6055**. Home Assistant does not need a separate API token for the display.
+
+### Prerequisites
+
+The Pi should have:
+
+- Debian Linux on ARM64
+- Docker Engine
+- Docker Compose v2
+- PipeWire and `pipewire-pulse`
+- The USB microphone/speaker connected and working
+- A persistent user runtime directory for PipeWire
+
+Enable the user runtime to survive boot:
+
+~~~bash
+loginctl enable-linger administrator
+~~~
+
+Verify PipeWire/PulseAudio:
+
+~~~bash
+pactl info
+~~~
+
+The default sink and source should point to the USB audio device.
+
+### Install LVA
+
+Clone the upstream LVA project:
+
+~~~bash
+cd ~
+git clone https://github.com/OHF-Voice/linux-voice-assistant.git
+cd ~/linux-voice-assistant
+cp .env.example .env
+~~~
+
+For the GLaDOS Pi, the important Docker environment is:
+
+~~~dotenv
+LVA_USER_ID="1000"
+LVA_USER_GROUP="1000"
+LVA_PULSE_SERVER="/run/user/${LVA_USER_ID}/pulse/native"
+LVA_XDG_RUNTIME_DIR="/run/user/${LVA_USER_ID}"
+LVA_PULSE_COOKIE="/run/user/${LVA_USER_ID}/pulse/cookie"
+~~~
+
+The upstream Docker Compose configuration uses host networking and provides the ESPHome API on port **6053** and the peripheral WebSocket API on port **6055** by default.
+
+Start LVA:
+
+~~~bash
+docker compose up -d
+~~~
+
+Check it:
+
+~~~bash
+docker compose ps
+docker logs -f linux-voice-assistant
+~~~
+
+Home Assistant should discover the LVA device through the ESPHome integration. Complete the Home Assistant Assist pipeline configuration before testing the physical GLaDOS head.
+
+### Hey GLaDOS wake word
+
+This build uses the custom **Hey GLaDOS** MicroWakeWord model from [TaterTotterson/microWakeWords](https://github.com/TaterTotterson/microWakeWords).
+
+The model configuration is:
+
+~~~yaml
+micro_wake_word:
+  id: mww
+  models:
+    - model: https://github.com/TaterTotterson/microWakeWords/raw/refs/heads/main/microWakeWords/hey_glados.json
+      id: hey_glados
+~~~
+
+The current GLaDOS setup uses:
+
+~~~dotenv
+WAKE_WORD_DIR="app/wakewords/custom"
+WAKE_MODEL="hey_glados"
+~~~
+
+The custom wake-word files are stored in the LVA Docker volume rather than committed to this repository. Do **not** put generated model files or machine-specific Docker volume contents in Git.
+
+After changing the wake-word files or LVA configuration:
+
+~~~bash
+cd ~/linux-voice-assistant
+docker compose restart linux-voice-assistant
+~~~
+
+### LVA peripheral API
+
+LVA is the WebSocket server and hardware peripherals connect as clients:
+
+~~~text
+GLaDOS display
+      │
+      │ WebSocket
+      ▼
+ws://127.0.0.1:6055
+      │
+      ▼
+Linux Voice Assistant
+      │
+      │ ESPHome API
+      ▼
+Home Assistant
+~~~
+
+The display listens for:
+
+| LVA event | Display state |
+|---|---|
+| `wake_word_detected` | Aperture opening |
+| `listening` | Listening animation |
+| `thinking` | Thinking animation |
+| `tts_speaking` | Speaking animation |
+| `tts_finished` / `idle` | Idle |
+| `pipeline_error` | Error flash |
+| `disconnected` | Connection-lost pulse |
+
+LVA sends a state snapshot immediately after the display connects, and the display automatically reconnects if LVA restarts.
+
+For LVA's complete peripheral API documentation, see the [upstream peripheral API documentation](https://github.com/OHF-Voice/linux-voice-assistant/blob/main/docs/peripheral_api.md).
+
+### Docker startup
+
+LVA should be configured with:
+
+~~~bash
+docker compose up -d
+~~~
+
+and configured to restart automatically by the upstream Compose configuration.
+
+The GLaDOS display is managed separately by systemd, so Docker and systemd can restart independently:
+
+~~~text
+Boot
+ ├─ PipeWire
+ ├─ Docker
+ │   └─ Linux Voice Assistant
+ │       └─ peripheral API :6055
+ │
+ └─ glados-display.service
+     └─ connects/reconnects to LVA :6055
+~~~
 
 ## Voice Assistant
 
@@ -113,16 +279,24 @@ The system uses the user's PipeWire/PulseAudio runtime socket so LVA can access 
 
 ## Boot Sounds
 
-The head currently plays a short startup sequence when the Pi boots:
+The head uses **two systemd services intentionally** so the startup sounds happen at two different points in the boot process:
 
-1. Power-up sound
-2. Second power-up sound
-3. GLaDOS wake-up sound
+1. **Early power-up:** `glados-powerup.service` waits only for the USB audio device to appear, then plays `powerup01.wav`.
+2. **Boot complete:** `glados-wakeup.service` runs after `multi-user.target`, then plays `powerup02.wav` followed by `glados_wakeup.wav`.
 
-The systemd units for these sounds are in:
+This gives the intended sequence:
 
 ```text
-services/
+Pi powers on
+   │
+   └─ glados-powerup.service
+        └─ powerup01.wav
+             │
+             │ ...system continues booting...
+             │
+             └─ glados-wakeup.service
+                  ├─ powerup02.wav
+                  └─ glados_wakeup.wav
 ```
 
 The installation scripts place the runtime files under:
@@ -131,21 +305,47 @@ The installation scripts place the runtime files under:
 /opt/glados/
 ```
 
+The display service connects to the Linux Voice Assistant peripheral WebSocket API on port 6055. This lets the display follow Home Assistant Assist state without a Home Assistant access token or a separate HA API connection.
+
 ### Install
 
 From a clone of this repository:
 
-```bash
+```
+cd ~/GLaDOS
+git pull
 ./scripts/install.sh
 ```
 
-The installer downloads the required sound files and installs/enables the systemd services.
+The installation scripts are tracked as executable files in Git, so a normal checkout should not require `chmod +x`.
 
-To test the services manually:
+> **Raspberry Pi note:** Git can report executable-bit changes as local modifications when `core.filemode` is enabled and the checkout predates the executable-bit fix. On a dedicated Pi checkout, disable file-mode tracking once:
+>
+> ```
+> git config core.filemode false
+> ```
+>
+> This is a Git working-tree setting, not a `.gitignore` rule; `.gitignore` cannot ignore Unix permission changes.
 
-```bash
+The installer installs the display dependencies and Waveshare driver, copies the display software to `/opt/glados`, downloads the required sound files, installs/enables the two boot sound services and display service, and starts the display service immediately.
+
+To test the early sound manually:
+
+```
 sudo systemctl start glados-powerup.service
+```
+
+To test the late boot sequence manually:
+
+```
 sudo systemctl start glados-wakeup.service
+```
+
+Check the service logs:
+
+```
+sudo journalctl -u glados-powerup.service -n 50 --no-pager
+sudo journalctl -u glados-wakeup.service -n 50 --no-pager
 ```
 
 ## Display
@@ -169,16 +369,17 @@ SPI must be enabled on the Raspberry Pi.
 
 The display has been verified using the official Waveshare Python driver and example.
 
-A dedicated GLaDOS display service is planned and will replace the demonstration clock.
+The GLaDOS display service runs at boot and follows LVA events:
 
-Planned display states include:
+- Wake word → aperture opening
+- Listening → listening animation
+- Thinking → thinking animation
+- Speaking → speaking animation
+- Idle → idle aperture
+- Pipeline error → brief error flash
+- LVA/HA disconnected → connection-lost pulse
 
-- Idle
-- Wake
-- Listening
-- Thinking
-- Speaking
-- Error
+The service automatically reconnects if LVA restarts.
 
 ## Repository Layout
 
@@ -187,11 +388,13 @@ GLaDOS/
 ├── README.md
 ├── services/
 │   ├── glados-powerup.service
-│   └── glados-wakeup.service
+│   ├── glados-wakeup.service
+│   └── glados-display.service
 ├── scripts/
 │   ├── install.sh
 │   ├── install-services.sh
-│   └── download-sounds.sh
+│   ├── download-sounds.sh
+│   └── install-display.sh
 └── sounds/
 ```
 
