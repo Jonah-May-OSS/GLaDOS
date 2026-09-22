@@ -22,10 +22,7 @@ class DisplayDriver:
         except ImportError as exc:
             raise RuntimeError("Waveshare driver not installed. Run scripts/install-display.sh first.") from exc
 
-        # Keep the full 240x240 update window for reliable GC9A01 refreshes,
-        # but run the SPI bus faster so the complete framebuffer costs less
-        # time on the wire.  62.5 MHz is within the GC9A01's commonly supported
-        # high-speed SPI range and is the next step above the previous 40 MHz.
+        # Keep the full 240x240 update window for reliable GC9A01 refreshes.
         spi_freq = int(os.getenv("GLADOS_SPI_FREQ", "62500000"))
         self._lcd = LCD_1inch28.LCD_1inch28(spi_freq=spi_freq)
         self._frame_buffers = {}
@@ -63,7 +60,10 @@ class DisplayDriver:
         # windows can leave stale pixels/white bars at the artwork edges.
         self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
-        self._lcd.SPI.writebytes2(self._frame_buffers[key])
+
+        # xfer3() is intended for large SPI transfers and transparently
+        # handles buffers larger than the kernel spidev bufsiz limit.
+        self._lcd.SPI.xfer3(self._frame_buffers[key])
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
