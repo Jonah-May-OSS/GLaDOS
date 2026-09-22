@@ -1,8 +1,11 @@
-"""GLaDOS display state renderer."""
+"""GLaDOS display renderer using the supplied aperture artwork."""
 
 import time
+from pathlib import Path
 from typing import Optional
-from PIL import Image, ImageDraw
+
+from PIL import Image
+
 try:
     from .driver import DisplayDriver
     from .states import DisplayState
@@ -11,74 +14,82 @@ except ImportError:
     from states import DisplayState
 
 SIZE = (240, 240)
+ASSET_DIR = Path(__file__).resolve().parent / "assets"
+APERTURE_FRAMES = tuple(
+    ASSET_DIR / f"aperture{index}.png" for index in range(9)
+)
+
 
 class GladosDisplay:
     def __init__(self, driver: Optional[DisplayDriver] = None):
         self.driver = driver or DisplayDriver()
         self.state = None
 
-    def render(self, state: DisplayState) -> None:
-        image = Image.new("RGB", SIZE, "black")
-        draw = ImageDraw.Draw(image)
-        renderers = {
-            DisplayState.IDLE: self._draw_idle,
-            DisplayState.WAKE: self._draw_wake,
-            DisplayState.LISTENING: self._draw_listening,
-            DisplayState.THINKING: self._draw_thinking,
-            DisplayState.SPEAKING: self._draw_speaking,
-            DisplayState.ERROR: self._draw_error,
+    @staticmethod
+    def _load_frame(index: int) -> Image.Image:
+        path = APERTURE_FRAMES[index % len(APERTURE_FRAMES)]
+        with Image.open(path) as source:
+            return source.convert("RGB")
+
+    def render(self, state: DisplayState, frame: int = 0) -> None:
+        sequences = {
+            DisplayState.IDLE: (0,),
+            DisplayState.WAKE: (0,),
+            DisplayState.LISTENING: (1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.THINKING: (8, 7, 6, 5, 4, 3, 2, 1),
+            DisplayState.SPEAKING: (0, 1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.ERROR: (0,),
         }
         try:
-            renderers[state](draw)
+            sequence = sequences[state]
         except KeyError as exc:
             raise ValueError(f"Unsupported display state: {state}") from exc
+
+        image = self._load_frame(sequence[frame % len(sequence)])
         self.driver.show(image)
         self.state = state
 
-    @staticmethod
-    def _draw_idle(draw):
-        draw.ellipse((72, 72, 168, 168), outline="white", width=4)
-        draw.ellipse((104, 104, 136, 136), fill="white")
+    def animate(self, state: DisplayState, fps: float = 12.0, cycles: int = 1) -> None:
+        """Play the aperture sequence for a state."""
+        sequences = {
+            DisplayState.LISTENING: (1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.THINKING: (8, 7, 6, 5, 4, 3, 2, 1),
+            DisplayState.SPEAKING: (0, 1, 2, 3, 4, 5, 6, 7, 8),
+        }
+        sequence = sequences.get(state, (0,))
+        delay = 1.0 / max(fps, 1.0)
 
-    @staticmethod
-    def _draw_wake(draw):
-        draw.ellipse((48, 48, 192, 192), outline="white", width=6)
-        draw.ellipse((92, 92, 148, 148), fill="white")
-
-    @staticmethod
-    def _draw_listening(draw):
-        draw.ellipse((58, 58, 182, 182), outline="white", width=5)
-        draw.ellipse((100, 100, 140, 140), fill="white")
-
-    @staticmethod
-    def _draw_thinking(draw):
-        draw.ellipse((70, 70, 170, 170), outline="white", width=4)
-        for x in (100, 120, 140):
-            draw.ellipse((x - 5, 115, x + 5, 125), fill="white")
-
-    @staticmethod
-    def _draw_speaking(draw):
-        draw.ellipse((58, 58, 182, 182), outline="white", width=5)
-        draw.arc((92, 92, 148, 148), 20, 160, fill="white", width=5)
-
-    @staticmethod
-    def _draw_error(draw):
-        draw.ellipse((58, 58, 182, 182), outline="white", width=5)
-        draw.line((92, 92, 148, 148), fill="white", width=7)
-        draw.line((148, 92, 92, 148), fill="white", width=7)
+        for _ in range(cycles):
+            for frame, _ in enumerate(sequence):
+                self.render(state, frame)
+                time.sleep(delay)
 
 
 def demo() -> None:
     display = GladosDisplay()
-    sequence = list(DisplayState)
+
     try:
         while True:
-            for state in sequence:
-                print(f"display: {state.value}", flush=True)
-                display.render(state)
-                time.sleep(2)
+            print("display: idle", flush=True)
+            display.render(DisplayState.IDLE)
+            time.sleep(1.5)
+
+            print("display: wake", flush=True)
+            display.render(DisplayState.WAKE)
+            time.sleep(0.5)
+
+            print("display: listening", flush=True)
+            display.animate(DisplayState.LISTENING, fps=12, cycles=2)
+
+            print("display: thinking", flush=True)
+            display.animate(DisplayState.THINKING, fps=12, cycles=2)
+
+            print("display: speaking", flush=True)
+            display.animate(DisplayState.SPEAKING, fps=12, cycles=2)
+
     except KeyboardInterrupt:
         display.driver.clear()
+
 
 if __name__ == "__main__":
     demo()
