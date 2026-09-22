@@ -1,0 +1,12 @@
+[Unit]
+Description=GLaDOS Boot Sound Sequence
+After=sound.target
+Wants=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for i in $(seq 1 60); do if aplay -l 2>/dev/null | grep -q "USB PnP Sound Device"; then break; fi; sleep 0.5; done; aplay -D plughw:CARD=Device /opt/glados/sounds/powerup01.wav; aplay -D plughw:CARD=Device /opt/glados/sounds/powerup02.wav; aplay -D plughw:CARD=Device /opt/glados/sounds/glados_wakeup.wav'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
