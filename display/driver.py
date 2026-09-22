@@ -21,7 +21,7 @@ class DisplayDriver:
     def __init__(self) -> None:
         sys.path.insert(0, str(WAVESHARE_DRIVER_DIR))
         try:
-            from lib import LCD_1inch28
+            from lib import LCD_1inch28  # ty: ignore[unresolved-import]
         except ImportError as exc:
             raise RuntimeError(
                 "Waveshare driver not installed. Run scripts/install-display.sh first."
