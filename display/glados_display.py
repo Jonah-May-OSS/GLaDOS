@@ -28,14 +28,14 @@ APERTURE_COLOR = (255, 214, 0)
 LVA_WS_URL = os.getenv("LVA_WS_URL", "ws://127.0.0.1:6055")
 RECONNECT_DELAY = float(os.getenv("LVA_RECONNECT_DELAY", "3"))
 FPS = float(os.getenv("GLADOS_DISPLAY_FPS", "12"))
-FRAME_DURATION = float(os.getenv("GLADOS_DISPLAY_FRAME_DURATION", "0.5"))
+FRAME_DURATION = float(os.getenv("GLADOS_DISPLAY_FRAME_DURATION", "0.25"))
 
 SEQUENCES = {
     DisplayState.IDLE: (0,),
     DisplayState.WAKE: (0, 1, 2, 3, 4, 5, 6, 7, 8),
     DisplayState.LISTENING: (8, 7, 6, 5, 4, 3, 2, 1, 0),
     DisplayState.THINKING: (0, 2, 4, 6, 8, 7, 5, 3, 1),
-    DisplayState.SPEAKING: (1, 2, 3, 4, 5, 6, 7, 8, 0),
+    DisplayState.SPEAKING: (1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2),
 }
 
 ACTIVE_STATES = {
@@ -84,6 +84,7 @@ class GladosDisplay:
         key = (frame_index, self.state)
         if key == self._last_frame_key:
             return
+        _LOGGER.debug("Rendering frame %d in state %s", frame_index, self.state.value)
         self.driver.show(self.frames[frame_index])
         self._last_frame_key = key
 
