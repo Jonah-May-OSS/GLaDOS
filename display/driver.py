@@ -65,21 +65,48 @@ class DisplayDriver:
             raise ValueError("Display image must be exactly 240x240 pixels")
 
         start = time.monotonic()
+        pixels = self._lcd.np.asarray(image)
 
-        key = id(image)
-        if key not in self._frame_buffers:
-            self._frame_buffers[key] = self._rgb444(image)
+        # Only transmit pixels that changed since the previous frame.
+        # The first frame is necessarily a full-frame update.
+        if not hasattr(self, "_last_pixels"):
+            x0, y0, x1, y1 = 0, 0, self.WIDTH, self.HEIGHT
+        else:
+            changed = self._lcd.np.any(pixels != self._last_pixels, axis=2)
+            ys, xs = self._lcd.np.nonzero(changed)
+            if len(xs) == 0:
+                return
 
-        # Always program the complete 240x240 address window.
-        self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
+            x0, x1 = int(xs.min()), int(xs.max()) + 1
+            y0, y1 = int(ys.min()), int(ys.max()) + 1
+
+            # RGB444 packs two pixels into three bytes. Keep the rectangle
+            # at an even pixel count so the transfer ends cleanly.
+            if ((x1 - x0) * (y1 - y0)) & 1:
+                if x1 < self.WIDTH:
+                    x1 += 1
+                elif x0 > 0:
+                    x0 -= 1
+                else:
+                    y1 += 1
+
+        crop = image.crop((x0, y0, x1, y1))
+        buffer = self._rgb444(crop)
+
+        self._lcd.SetWindows(x0, y0, x1, y1)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
-        self._lcd.SPI.writebytes2(self._frame_buffers[key])
+        self._lcd.SPI.writebytes2(buffer)
+        self._last_pixels = pixels.copy()
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
-            "LCD full-frame RGB444 transfer: %.1f ms (%d bytes)",
+            "LCD RGB444 changed-region transfer: %.1f ms (%d bytes, %dx%d at %d,%d)",
             elapsed * 1000,
-            len(self._frame_buffers[key]),
+            len(buffer),
+            x1 - x0,
+            y1 - y0,
+            x0,
+            y0,
         )
 
     def clear(self):
