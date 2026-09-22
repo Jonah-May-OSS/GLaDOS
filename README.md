@@ -285,11 +285,13 @@ The head currently plays a short startup sequence when the Pi boots:
 2. Second power-up sound
 3. GLaDOS wake-up sound
 
-The systemd units for these sounds are in:
+The boot sequence is managed by `services/glados-boot-sounds.service` and plays the three clips in order:
 
-```text
-services/
-```
+1. `powerup01.wav`
+2. `powerup02.wav`
+3. `glados_wakeup.wav`
+
+The service waits for the USB audio device to appear before starting playback, then plays each clip sequentially. This avoids the two independent boot services racing each other or starting before the USB audio device is ready.
 
 The installation scripts place the runtime files under:
 
@@ -305,28 +307,32 @@ From a clone of this repository:
 
 ```bash
 cd ~/GLaDOS
+git pull
 ./scripts/install.sh
 ```
 
-The repository marks the installation scripts as executable. If an older checkout was created before that change, refresh the checkout first:
+The installation scripts are tracked as executable files in Git, so a normal checkout should not require `chmod +x`.
 
-```bash
-git pull
-```
-
-If Git reports that the scripts are not executable, repair the mode once:
-
-```bash
-chmod +x scripts/*.sh
-```
+> **Raspberry Pi note:** Git can report executable-bit changes as local modifications when `core.filemode` is enabled and the checkout predates the executable-bit fix. On a dedicated Pi checkout, disable file-mode tracking once:
+>
+> ```bash
+> git config core.filemode false
+> ```
+>
+> This is a Git working-tree setting, not a `.gitignore` rule; `.gitignore` cannot ignore Unix permission changes.
 
 The installer installs the display dependencies and Waveshare driver, copies the display software to `/opt/glados`, downloads the required sound files, installs/enables the systemd services, and starts the display service immediately.
 
-To test the services manually:
+To test the boot sequence manually without rebooting:
 
 ```bash
-sudo systemctl start glados-powerup.service
-sudo systemctl start glados-wakeup.service
+sudo systemctl start glados-boot-sounds.service
+```
+
+Check its log:
+
+```bash
+sudo journalctl -u glados-boot-sounds.service -n 50 --no-pager
 ```
 
 ## Display
@@ -368,8 +374,7 @@ The service automatically reconnects if LVA restarts.
 GLaDOS/
 ├── README.md
 ├── services/
-│   ├── glados-powerup.service
-│   ├── glados-wakeup.service
+│   ├── glados-boot-sounds.service
 │   └── glados-display.service
 ├── scripts/
 │   ├── install.sh
