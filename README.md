@@ -189,4 +189,4 @@ As components move from experimentation into the stable configuration, their ins
 
 ## License
 
-License has not yet been selected.
+This project is licensed under the [MIT License](LICENSE).
