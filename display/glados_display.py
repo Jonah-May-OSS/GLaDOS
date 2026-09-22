@@ -86,7 +86,6 @@ class GladosDisplay:
         key = (frame_index, self.state)
         if key == self._last_frame_key:
             return
-        _LOGGER.debug("Rendering frame %d in state %s", frame_index, self.state.value)
         self.driver.show(self.frames[frame_index])
         self._last_frame_key = key
 
