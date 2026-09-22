@@ -76,7 +76,7 @@ class DisplayDriver:
 
         left, top, right, bottom = dirty
         crop = image.crop(dirty)
-        key = id(image)
+        key = (id(image), dirty)
         if key not in self._frame_buffers:
             self._frame_buffers[key] = self._rgb565(crop)
             _LOGGER.debug(
