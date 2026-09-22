@@ -4,6 +4,7 @@ from pathlib import Path
 import logging
 import sys
 import time
+import os
 
 WAVESHARE_DRIVER_DIR = Path("/opt/glados/display/waveshare")
 _LOGGER = logging.getLogger("glados.display.driver")
@@ -20,7 +21,9 @@ class DisplayDriver:
             from lib import LCD_1inch28
         except ImportError as exc:
             raise RuntimeError("Waveshare driver not installed. Run scripts/install-display.sh first.") from exc
-        self._lcd = LCD_1inch28.LCD_1inch28()
+        spi_freq = int(os.getenv("GLADOS_SPI_FREQ", "40000000"))
+        self._lcd = LCD_1inch28.LCD_1inch28(spi_freq=spi_freq)
+        _LOGGER.info("LCD SPI frequency: %d Hz", spi_freq)
         self._lcd.Init()
         self._lcd.bl_DutyCycle(100)
         self._lcd.clear()
