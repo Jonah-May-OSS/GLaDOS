@@ -167,6 +167,14 @@ class GladosDisplay:
                 )
             expected = now
 
+    def _render_task_done(self, task) -> None:
+        if task.cancelled():
+            _LOGGER.warning("Render task was cancelled")
+        elif task.exception() is not None:
+            _LOGGER.error("Render task CRASHED: %r", task.exception())
+        else:
+            _LOGGER.error("Render task exited unexpectedly")
+
     async def _render_loop(self) -> None:
         """Render whenever the animation frame is due."""
         try:
@@ -216,6 +224,7 @@ class GladosDisplay:
 
     async def run(self) -> None:
         render_task = asyncio.create_task(self._render_loop())
+        render_task.add_done_callback(self._render_task_done)
         heartbeat_task = asyncio.create_task(self._event_loop_heartbeat())
         try:
             while True:
