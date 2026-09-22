@@ -52,9 +52,9 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 
 | Component | Status | Reference |
 |---|---|---|
-| Servo Driver HAT | 🔧 Integration pending | — |
-| DSSERVO 25 kg digital servo | 🔧 Pending | — |
-| DSSERVO 35 kg digital servo | 🔧 Pending | — |
+| Waveshare Servo Driver HAT | 🔧 Integration pending | [Waveshare](https://www.waveshare.com/product/robotics/drivers-sensors/servo-driver-hat.htm) |
+| DSSERVO DS3225 25 kg digital servo | 🔧 Pending | [Amazon](https://www.amazon.com/dp/B07RNFQYD2) |
+| DSSERVO DS3235 35 kg digital servo | 🔧 Pending | [Amazon](https://www.amazon.com/ZOSKAY-Coreless-Digital-Stainless-arduino/dp/B07S9XZYN2) |
 
 The Servo Driver HAT and servos are part of the planned mechanical/animatronic system. Exact component links will be documented once the final hardware configuration is established.
 
