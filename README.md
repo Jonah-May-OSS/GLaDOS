@@ -13,7 +13,10 @@ USB Microphone
       │
       ▼
 Linux Voice Assistant (LVA)
-  └─ Local MicroWakeWord
+  ├─ Local MicroWakeWord
+  └─ Peripheral WebSocket API
+       │
+       ├──────────────► GLaDOS Display
        │
        │ ESPHome API
        ▼
@@ -80,7 +83,7 @@ The build uses a 16-LED ring with 5050 addressable RGB LEDs.
 | Hey GLaDOS wake word | ✅ Working |
 | Home Assistant Assist | ✅ Working |
 | GC9A01 display | ✅ Wired/tested |
-| GLaDOS display software | 🚧 In development |
+| GLaDOS display software | 🚧 Integration complete; hardware/animation testing |
 | Servo Driver HAT | 🔧 Integration pending |
 | Servos | 🔧 Integration pending |
 | NeoPixel ring | 🔧 Integration pending |
@@ -131,6 +134,8 @@ The installation scripts place the runtime files under:
 /opt/glados/
 ```
 
+The display service connects to the Linux Voice Assistant peripheral WebSocket API on port 6055. This lets the display follow Home Assistant Assist state without a Home Assistant access token or a separate HA API connection.
+
 ### Install
 
 From a clone of this repository:
@@ -169,16 +174,17 @@ SPI must be enabled on the Raspberry Pi.
 
 The display has been verified using the official Waveshare Python driver and example.
 
-A dedicated GLaDOS display service is planned and will replace the demonstration clock.
+The GLaDOS display service runs at boot and follows LVA events:
 
-Planned display states include:
+- Wake word → aperture opening
+- Listening → listening animation
+- Thinking → thinking animation
+- Speaking → speaking animation
+- Idle → idle aperture
+- Pipeline error → brief error flash
+- LVA/HA disconnected → connection-lost pulse
 
-- Idle
-- Wake
-- Listening
-- Thinking
-- Speaking
-- Error
+The service automatically reconnects if LVA restarts.
 
 ## Repository Layout
 
@@ -187,11 +193,13 @@ GLaDOS/
 ├── README.md
 ├── services/
 │   ├── glados-powerup.service
-│   └── glados-wakeup.service
+│   ├── glados-wakeup.service
+│   └── glados-display.service
 ├── scripts/
 │   ├── install.sh
 │   ├── install-services.sh
-│   └── download-sounds.sh
+│   ├── download-sounds.sh
+│   └── install-display.sh
 └── sounds/
 ```
 
