@@ -12,17 +12,19 @@ sudo mkdir -p "${INSTALL_ROOT}/services"
 sudo cp -a "${REPO_ROOT}/services/." "${INSTALL_ROOT}/services/"
 sudo cp -a "${REPO_ROOT}/sounds/." "${INSTALL_ROOT}/sounds/" 2>/dev/null || true
 
-sudo install -m 0644 "${REPO_ROOT}/services/glados-powerup.service" /etc/systemd/system/glados-powerup.service
-sudo install -m 0644 "${REPO_ROOT}/services/glados-wakeup.service" /etc/systemd/system/glados-wakeup.service
+# The three startup clips are one ordered boot sequence. Remove the old
+# split services so an upgrade cannot play the sequence twice.
+sudo systemctl disable --now glados-powerup.service glados-wakeup.service 2>/dev/null || true
+sudo rm -f /etc/systemd/system/glados-powerup.service /etc/systemd/system/glados-wakeup.service
+
+sudo install -m 0644 "${REPO_ROOT}/services/glados-boot-sounds.service" /etc/systemd/system/glados-boot-sounds.service
 sudo install -m 0644 "${REPO_ROOT}/services/glados-display.service" /etc/systemd/system/glados-display.service
 
 sudo systemctl daemon-reload
-sudo systemctl enable glados-powerup.service
-sudo systemctl enable glados-wakeup.service
+sudo systemctl enable glados-boot-sounds.service
 sudo systemctl enable --now glados-display.service
 
 echo
 echo "Installed and enabled:"
-echo "  glados-powerup.service"
-echo "  glados-wakeup.service"
+echo "  glados-boot-sounds.service"
 echo "  glados-display.service"
