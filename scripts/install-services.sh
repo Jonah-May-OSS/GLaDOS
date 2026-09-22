@@ -14,12 +14,15 @@ sudo cp -a "${REPO_ROOT}/sounds/." "${INSTALL_ROOT}/sounds/" 2>/dev/null || true
 
 sudo install -m 0644 "${REPO_ROOT}/services/glados-powerup.service" /etc/systemd/system/glados-powerup.service
 sudo install -m 0644 "${REPO_ROOT}/services/glados-wakeup.service" /etc/systemd/system/glados-wakeup.service
+sudo install -m 0644 "${REPO_ROOT}/services/glados-display.service" /etc/systemd/system/glados-display.service
 
 sudo systemctl daemon-reload
 sudo systemctl enable glados-powerup.service
 sudo systemctl enable glados-wakeup.service
+sudo systemctl enable glados-display.service
 
 echo
 echo "Installed and enabled:"
 echo "  glados-powerup.service"
 echo "  glados-wakeup.service"
+echo "  glados-display.service"
