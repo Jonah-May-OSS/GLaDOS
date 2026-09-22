@@ -21,15 +21,48 @@ SPI must be enabled on the Raspberry Pi.
 
 ## Software
 
-The display has been verified using the official Waveshare Python driver and example. The Waveshare driver is hardware-specific and should remain separated from higher-level GLaDOS display and animation logic.
+The display uses the official Waveshare Python driver for the hardware layer. The GLaDOS renderer loads the source-derived aperture sprite and maps voice-assistant states to animations.
 
-Planned display states:
+The display controller connects to the Linux Voice Assistant (LVA) peripheral WebSocket API on port 6055. LVA exposes the Home Assistant voice-assistant state through this interface, so no Home Assistant access token or separate HA API integration is required.
 
-- Idle
-- Wake
-- Listening
-- Thinking
-- Speaking
-- Error
+LVA events are mapped as follows:
 
-The display will eventually receive voice-assistant state from the Linux Voice Assistant peripheral interface rather than owning the voice-assistant pipeline itself.
+| LVA event | Display |
+|---|---|
+| `wake_word_detected` | Aperture opening |
+| `listening` | Listening animation |
+| `thinking` | Thinking animation |
+| `tts_speaking` | Speaking animation |
+| `idle` / `tts_finished` | Idle |
+| `pipeline_error` | Error flash |
+| `disconnected` | Connection-lost pulse |
+
+The controller automatically reconnects to LVA if the container restarts or the network/HA connection is temporarily unavailable.
+
+## Installation
+
+The top-level installer handles the display dependencies, Waveshare driver, display files, and systemd service:
+
+```bash
+./scripts/install.sh
+```
+
+The service starts automatically at boot:
+
+```bash
+sudo systemctl status glados-display.service
+```
+
+For manual testing:
+
+```bash
+sudo systemctl restart glados-display.service
+```
+
+Logs:
+
+```bash
+journalctl -u glados-display.service -f
+```
+
+LVA must have its peripheral API enabled on port 6055, which is the default.
