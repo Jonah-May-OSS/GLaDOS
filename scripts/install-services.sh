@@ -6,11 +6,25 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "Installing GLaDOS files to ${INSTALL_ROOT}..."
 
-sudo mkdir -p "${INSTALL_ROOT}/sounds"
-sudo mkdir -p "${INSTALL_ROOT}/services"
+sudo mkdir -p "\${INSTALL_ROOT}/sounds"
+sudo mkdir -p "\${INSTALL_ROOT}/services"
 
-sudo cp -a "${REPO_ROOT}/services/." "${INSTALL_ROOT}/services/"
-sudo cp -a "${REPO_ROOT}/sounds/." "${INSTALL_ROOT}/sounds/" 2>/dev/null || true
+sudo cp -a "\${REPO_ROOT}/services/." "\${INSTALL_ROOT}/services/"
+sudo cp -a "\${REPO_ROOT}/sounds/." "\${INSTALL_ROOT}/sounds/" 2>/dev/null || true
+
+# Keep systemd journal growth bounded so the Pi cannot fill its storage with
+# service logs. These limits apply to the system journal as a whole.
+sudo mkdir -p /etc/systemd/journald.conf.d
+sudo tee /etc/systemd/journald.conf.d/20-glados-retention.conf >/dev/null <<'EOF'
+[Journal]
+SystemMaxUse=200M
+SystemKeepFree=500M
+RuntimeMaxUse=100M
+MaxRetentionSec=30day
+EOF
+
+sudo systemctl restart systemd-journald
+sudo journalctl --vacuum-time=30d --vacuum-size=200M
 
 # The boot sequence is intentionally split into an early power-up stage and
 # a late wake-up stage. Remove the temporary unified service from older
