@@ -2,8 +2,6 @@
 
 A physical GLaDOS-inspired voice assistant head built around a Raspberry Pi 4, Home Assistant, and local voice-assistant infrastructure.
 
-> **Status:** Active development
-
 ## Overview
 
 The GLaDOS head is the physical endpoint for a Home Assistant voice assistant. The Raspberry Pi handles the local hardware and audio endpoint while Home Assistant provides the voice-assistant pipeline.
