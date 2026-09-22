@@ -14,10 +14,8 @@ except ImportError:
     from states import DisplayState
 
 SIZE = (240, 240)
-ASSET_DIR = Path(__file__).resolve().parent / "assets"
-APERTURE_FRAMES = tuple(
-    ASSET_DIR / f"aperture{index}.png" for index in range(9)
-)
+SPRITE_PATH = Path(__file__).resolve().parent / "assets" / "aperture_sprite.png"
+FRAME_COUNT = 9
 
 
 class GladosDisplay:
@@ -27,34 +25,33 @@ class GladosDisplay:
 
     @staticmethod
     def _load_frame(index: int) -> Image.Image:
-        path = APERTURE_FRAMES[index % len(APERTURE_FRAMES)]
-        with Image.open(path) as source:
-            return source.convert("RGB")
+        with Image.open(SPRITE_PATH) as sprite:
+            top = (index % FRAME_COUNT) * SIZE[1]
+            return sprite.crop((0, top, SIZE[0], top + SIZE[1])).convert("RGB")
 
     def render(self, state: DisplayState, frame: int = 0) -> None:
+        # Aperture.h contains one complete aperture plus eight individual
+        # blade masks. The sprite contains composites generated from those
+        # exact source masks, so every frame is a real source-derived image.
         sequences = {
             DisplayState.IDLE: (0,),
-            DisplayState.WAKE: (0,),
-            DisplayState.LISTENING: (1, 2, 3, 4, 5, 6, 7, 8),
-            DisplayState.THINKING: (8, 7, 6, 5, 4, 3, 2, 1),
-            DisplayState.SPEAKING: (0, 1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.WAKE: (0, 1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.LISTENING: (8, 7, 6, 5, 4, 3, 2, 1, 0),
+            DisplayState.THINKING: (0, 2, 4, 6, 8, 7, 5, 3, 1),
+            DisplayState.SPEAKING: (1, 2, 3, 4, 5, 6, 7, 8, 0),
             DisplayState.ERROR: (0,),
         }
-        try:
-            sequence = sequences[state]
-        except KeyError as exc:
-            raise ValueError(f"Unsupported display state: {state}") from exc
-
+        sequence = sequences[state]
         image = self._load_frame(sequence[frame % len(sequence)])
         self.driver.show(image)
         self.state = state
 
     def animate(self, state: DisplayState, fps: float = 12.0, cycles: int = 1) -> None:
-        """Play the aperture sequence for a state."""
         sequences = {
-            DisplayState.LISTENING: (1, 2, 3, 4, 5, 6, 7, 8),
-            DisplayState.THINKING: (8, 7, 6, 5, 4, 3, 2, 1),
-            DisplayState.SPEAKING: (0, 1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.WAKE: (0, 1, 2, 3, 4, 5, 6, 7, 8),
+            DisplayState.LISTENING: (8, 7, 6, 5, 4, 3, 2, 1, 0),
+            DisplayState.THINKING: (0, 2, 4, 6, 8, 7, 5, 3, 1),
+            DisplayState.SPEAKING: (1, 2, 3, 4, 5, 6, 7, 8, 0),
         }
         sequence = sequences.get(state, (0,))
         delay = 1.0 / max(fps, 1.0)
@@ -75,8 +72,7 @@ def demo() -> None:
             time.sleep(1.5)
 
             print("display: wake", flush=True)
-            display.render(DisplayState.WAKE)
-            time.sleep(0.5)
+            display.animate(DisplayState.WAKE, fps=12, cycles=1)
 
             print("display: listening", flush=True)
             display.animate(DisplayState.LISTENING, fps=12, cycles=2)

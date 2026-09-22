@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INSTALL_DIR="/opt/glados/display/waveshare"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+INSTALL_DIR="/opt/glados/display"
+WAVESHARE_DIR="$INSTALL_DIR/waveshare"
 ZIP_URL="https://files.waveshare.com/upload/8/8d/LCD_Module_RPI_code.zip"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -17,12 +18,12 @@ unzip -q "$TMP_DIR/LCD_Module_RPI_code.zip" -d "$TMP_DIR"
 SOURCE_DIR="$TMP_DIR/LCD_Module_RPI_code/RaspberryPi/python"
 [[ -f "$SOURCE_DIR/lib/LCD_1inch28.py" ]] || { echo "ERROR: Waveshare LCD_1inch28.py not found." >&2; exit 1; }
 
+sudo mkdir -p "$WAVESHARE_DIR"
+sudo rm -rf "$WAVESHARE_DIR/lib"
+sudo cp -a "$SOURCE_DIR/lib" "$WAVESHARE_DIR/"
 sudo mkdir -p "$INSTALL_DIR"
-sudo rm -rf "$INSTALL_DIR/lib"
-sudo cp -a "$SOURCE_DIR/lib" "$INSTALL_DIR/"
-sudo mkdir -p /opt/glados/display
-sudo cp "$REPO_ROOT"/display/{__init__.py,states.py,driver.py,glados_display.py} /opt/glados/display/
-sudo chown -R administrator:administrator /opt/glados/display
+sudo cp -a "$REPO_ROOT/display/." "$INSTALL_DIR/"
+sudo chown -R administrator:administrator "$INSTALL_DIR"
 
-echo "Display software installed under /opt/glados/display"
+echo "Display software installed under $INSTALL_DIR"
 echo "Run: cd /opt/glados && python3 -m display.glados_display"
