@@ -45,7 +45,7 @@ class DisplayDriver:
                 self._lcd.np.bitwise_and(self._lcd.np.left_shift(img[..., [1]], 3), 0xE0),
                 self._lcd.np.right_shift(img[..., [2]], 3),
             )
-            self._frame_buffers[key] = pix.flatten().tolist()
+            self._frame_buffers[key] = pix.tobytes()
             _LOGGER.debug("Cached RGB565 frame buffer for image id %d", key)
 
         self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
@@ -54,7 +54,7 @@ class DisplayDriver:
         chunk_timings = []
         for i in range(0, len(pix), 4096):
             chunk_start = time.monotonic()
-            self._lcd.spi_writebyte(pix[i:i + 4096])
+            self._lcd.SPI.writebytes2(pix[i:i + 4096])
             chunk_elapsed = time.monotonic() - chunk_start
             chunk_timings.append(chunk_elapsed * 1000)
 
