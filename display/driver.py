@@ -25,9 +25,11 @@ class DisplayDriver:
         # Keep the full 240x240 update window for reliable GC9A01 refreshes.
         # Use 12-bit MCU pixel mode to reduce each framebuffer by 25%.
         spi_freq = int(os.getenv("GLADOS_SPI_FREQ", "62500000"))
+        self._spi_settle_delay = float(os.getenv("GLADOS_SPI_SETTLE_DELAY", "0.020"))
         self._lcd = LCD_1inch28.LCD_1inch28(spi_freq=spi_freq)
         self._frame_buffers = {}
         _LOGGER.info("LCD SPI frequency: %d Hz", spi_freq)
+        _LOGGER.info("LCD SPI settle delay: %.3f s", self._spi_settle_delay)
         self._lcd.Init()
         self._lcd.bl_DutyCycle(100)
 
@@ -74,11 +76,15 @@ class DisplayDriver:
         self._lcd.digital_write(self._lcd.DC_PIN, True)
         self._lcd.SPI.writebytes2(self._frame_buffers[key])
 
+        if self._spi_settle_delay > 0:
+            time.sleep(self._spi_settle_delay)
+
         elapsed = time.monotonic() - start
         _LOGGER.debug(
-            "LCD full-frame RGB444 transfer: %.1f ms (%d bytes)",
+            "LCD full-frame RGB444 transfer: %.1f ms (%d bytes, %.0f ms settle)",
             elapsed * 1000,
             len(self._frame_buffers[key]),
+            self._spi_settle_delay * 1000,
         )
 
     def clear(self):
