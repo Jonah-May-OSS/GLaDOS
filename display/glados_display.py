@@ -121,8 +121,10 @@ class GladosDisplay:
             return
         sequence = SEQUENCES[self.state]
         elapsed = max(0.0, now - self.state_started)
-        frame = min(int(elapsed / FRAME_DURATION), len(sequence) - 1)
-        if self.state != DisplayState.WAKE:
+        frame = int(elapsed / FRAME_DURATION)
+        if self.state == DisplayState.WAKE:
+            frame = min(frame, len(sequence) - 1)
+        else:
             frame %= len(sequence)
         self._show_frame(sequence[frame])
 
