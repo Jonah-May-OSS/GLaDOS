@@ -30,5 +30,8 @@ jobs:
       - name: ty
         run: uv run ty check
 
+      - name: Tests and coverage
+        run: uv run pytest --cov=display --cov-report=term-missing --cov-fail-under=95
+
       - name: Compile Python
         run: uv run python -m compileall -q display
