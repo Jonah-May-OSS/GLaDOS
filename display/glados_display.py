@@ -3,8 +3,12 @@
 import time
 from typing import Optional
 from PIL import Image, ImageDraw
-from .driver import DisplayDriver
-from .states import DisplayState
+try:
+    from .driver import DisplayDriver
+    from .states import DisplayState
+except ImportError:
+    from driver import DisplayDriver
+    from states import DisplayState
 
 SIZE = (240, 240)
 
