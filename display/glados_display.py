@@ -155,8 +155,17 @@ class GladosDisplay:
             self.connection_lost = False
             self.set_state(ACTIVE_STATES[event])
 
-    async def run(self) -> None:
+    async def _render_loop(self) -> None:
+        """Render continuously at the configured frame rate."""
         interval = 1.0 / max(FPS, 1.0)
+
+        while True:
+            self.render()
+            await asyncio.sleep(interval)
+
+    async def run(self) -> None:
+        """Receive LVA events while the renderer runs independently."""
+        render_task = asyncio.create_task(self._render_loop())
 
         try:
             while True:
@@ -170,13 +179,7 @@ class GladosDisplay:
                         _LOGGER.info("Connected to LVA peripheral API")
                         self.connection_lost = False
 
-                        while True:
-                            try:
-                                raw = await asyncio.wait_for(ws.recv(), timeout=interval)
-                            except asyncio.TimeoutError:
-                                self.render()
-                                continue
-
+                        async for raw in ws:
                             try:
                                 message = json.loads(raw)
                             except json.JSONDecodeError:
@@ -188,7 +191,6 @@ class GladosDisplay:
                             if event:
                                 _LOGGER.debug("LVA event: %s %s", event, data)
                                 self.handle_event(event, data)
-                            self.render()
 
                 except asyncio.CancelledError:
                     raise
@@ -200,9 +202,13 @@ class GladosDisplay:
                         exc,
                         RECONNECT_DELAY,
                     )
-                    self.render()
                     await asyncio.sleep(RECONNECT_DELAY)
         finally:
+            render_task.cancel()
+            try:
+                await render_task
+            except asyncio.CancelledError:
+                pass
             self.close()
 
     def close(self) -> None:
