@@ -197,12 +197,27 @@ class GladosDisplay:
                     next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
                     delay = max(0.001, next_frame_time - time.monotonic())
 
+                if delay > 0.5:
+                    _LOGGER.warning(
+                        "Render delay anomaly: %.3f s (state=%s, frame=%d, elapsed=%.3f)",
+                        delay,
+                        self.state.value,
+                        frame,
+                        elapsed,
+                    )
+
                 before_sleep = time.monotonic()
                 await asyncio.sleep(delay)
 
                 woke = time.monotonic()
                 render_time = render_finished - loop_started
                 scheduler_lag = woke - before_sleep - delay
+                if render_time > 0.5:
+                    _LOGGER.warning(
+                        "Render duration anomaly: %.3f s (state=%s)",
+                        render_time,
+                        self.state.value,
+                    )
                 if render_time > 0.1:
                     _LOGGER.warning(
                         "Render call took %.3f s (state=%s)",
