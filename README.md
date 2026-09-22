@@ -155,6 +155,18 @@ GLaDOS/
 
 Additional display, animation, configuration, and hardware-control components will be added as development continues.
 
+## Credits
+
+This project builds on the work of **Mr. Volt (DJ Harrigan / @mr.v0lt)** and his GLaDOS project.
+
+We are using and adapting elements from his work, including STEP/3D design files, code, and hardware/component approaches. His original project was a major reference for the physical design and implementation of this build.
+
+- YouTube: https://www.youtube.com/watch?v=W9VFbfcogbA
+- YouTube channel: https://www.youtube.com/c/MrVolt
+- Instagram: https://www.instagram.com/mr.v0lt/
+
+Please refer to the original project and its associated files for the applicable licensing and attribution requirements. This repository does not claim ownership of Mr. Volt's original work.
+
 ## Development
 
 This project is being developed incrementally on a Raspberry Pi 4 running Debian.
