@@ -32,7 +32,7 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 
 | Component | Status | Reference |
 |---|---|---|
-| Raspberry Pi 4 Model B | ✅ Installed | [Raspberry Pi](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) |
+| Raspberry Pi 4 Model B | ✅ Installed | [Amazon](https://www.amazon.com/s?k=Raspberry+Pi+4+Model+B) |
 | MicroSD storage | ✅ Installed | — |
 | USB-C power supply | ✅ Installed | — |
 
@@ -46,7 +46,7 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 
 | Component | Status | Reference |
 |---|---|---|
-| Waveshare 1.28-inch LCD Module — SPI / GC9A01 / 240×240 IPS | ✅ Wired/tested | [Waveshare](https://www.waveshare.com/1.28inch-lcd-module.htm) |
+| Waveshare 1.28-inch LCD Module — SPI / GC9A01 / 240×240 IPS | ✅ Wired/tested | [Amazon](https://www.amazon.com/s?k=Waveshare+1.28inch+LCD+Module+GC9A01) |
 
 ### Motion
 
