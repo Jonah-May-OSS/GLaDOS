@@ -28,7 +28,6 @@ DISPLAY_X_OFFSET = -5
 
 LVA_WS_URL = os.getenv("LVA_WS_URL", "ws://127.0.0.1:6055")
 RECONNECT_DELAY = float(os.getenv("LVA_RECONNECT_DELAY", "3"))
-FPS = float(os.getenv("GLADOS_DISPLAY_FPS", "12"))
 FRAME_DURATION = float(os.getenv("GLADOS_DISPLAY_FRAME_DURATION", "0.25"))
 LOOP_HEARTBEAT_INTERVAL = 0.1
 LOOP_HEARTBEAT_WARN = 0.25
@@ -114,11 +113,8 @@ class GladosDisplay:
             self.driver.clear()
             self._last_frame_key = None
 
-    def render(self, now: Optional[float] = None) -> None:
-        now = now if now is not None else time.monotonic()
-        if self.state == DisplayState.ERROR:
-            self._render_error(now)
-            return
+    def _frame_at(self, now: float) -> tuple[int, float]:
+        """Return the current frame index and when the next frame is due."""
         sequence = SEQUENCES[self.state]
         elapsed = max(0.0, now - self.state_started)
         frame = int(elapsed / FRAME_DURATION)
@@ -126,7 +122,16 @@ class GladosDisplay:
             frame = min(frame, len(sequence) - 1)
         else:
             frame %= len(sequence)
-        self._show_frame(sequence[frame])
+        next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
+        return sequence[frame], next_frame_time
+
+    def render(self, now: Optional[float] = None) -> None:
+        now = now if now is not None else time.monotonic()
+        if self.state == DisplayState.ERROR:
+            self._render_error(now)
+            return
+        frame_index, _ = self._frame_at(now)
+        self._show_frame(frame_index)
 
     def handle_event(self, event: str, data: dict) -> None:
         if event == "snapshot":
@@ -189,50 +194,11 @@ class GladosDisplay:
                 if self.state == DisplayState.ERROR:
                     delay = 0.05
                 else:
-                    sequence = SEQUENCES[self.state]
-                    elapsed = max(0.0, now - self.state_started)
-                    frame = int(elapsed / FRAME_DURATION)
-                    if self.state == DisplayState.WAKE:
-                        frame = min(frame, len(sequence) - 1)
-                    else:
-                        frame %= len(sequence)
-                    next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
+                    _, next_frame_time = self._frame_at(now)
                     delay = max(0.001, next_frame_time - time.monotonic())
 
-                if delay > 0.5:
-                    _LOGGER.warning(
-                        "Render delay anomaly: %.3f s (state=%s, frame=%d, elapsed=%.3f)",
-                        delay,
-                        self.state.value,
-                        frame,
-                        elapsed,
-                    )
-
-                before_sleep = time.monotonic()
                 await asyncio.sleep(delay)
 
-                woke = time.monotonic()
-                render_time = render_finished - loop_started
-                scheduler_lag = woke - before_sleep - delay
-                if render_time > 0.5:
-                    _LOGGER.warning(
-                        "Render duration anomaly: %.3f s (state=%s)",
-                        render_time,
-                        self.state.value,
-                    )
-                if render_time > 0.1:
-                    _LOGGER.warning(
-                        "Render call took %.3f s (state=%s)",
-                        render_time,
-                        self.state.value,
-                    )
-                if scheduler_lag > 0.05:
-                    _LOGGER.warning(
-                        "Render loop wake lag %.3f s (requested sleep %.3f s, state=%s)",
-                        scheduler_lag,
-                        delay,
-                        self.state.value,
-                    )
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -311,7 +277,7 @@ def demo() -> None:
                 duration = len(SEQUENCES[state]) / FPS
                 while time.monotonic() - start < duration:
                     display.render()
-                    time.sleep(1 / max(FPS, 1.0))
+                    time.sleep(FRAME_DURATION)
     except KeyboardInterrupt:
         pass
     finally:
