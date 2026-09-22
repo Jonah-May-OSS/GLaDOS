@@ -60,10 +60,7 @@ class DisplayDriver:
         # windows can leave stale pixels/white bars at the artwork edges.
         self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
-
-        # xfer3() is intended for large SPI transfers and transparently
-        # handles buffers larger than the kernel spidev bufsiz limit.
-        self._lcd.SPI.xfer3(self._frame_buffers[key])
+        self._lcd.SPI.writebytes2(self._frame_buffers[key])
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
