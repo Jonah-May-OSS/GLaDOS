@@ -167,6 +167,7 @@ class GladosDisplay:
                 loop_started = time.monotonic()
                 now = loop_started
                 self.render(now)
+                render_finished = time.monotonic()
 
                 if self.state == DisplayState.ERROR:
                     delay = 0.05
@@ -183,6 +184,7 @@ class GladosDisplay:
                     next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
                     delay = max(0.001, next_frame_time - time.monotonic())
 
+                before_sleep = time.monotonic()
                 if delay > FRAME_DURATION * 2:
                     _LOGGER.warning(
                         "Render loop calculated long sleep: %.3f s (state=%s)",
@@ -192,15 +194,20 @@ class GladosDisplay:
 
                 await asyncio.sleep(delay)
 
-                loop_delay = time.monotonic() - loop_started
-                expected = delay
-                scheduler_lag = loop_delay - expected
-                if scheduler_lag > 0.5:
+                woke = time.monotonic()
+                render_time = render_finished - loop_started
+                scheduler_lag = woke - before_sleep - delay
+                if render_time > 0.1:
                     _LOGGER.warning(
-                        "Render loop woke %.3f s late (slept %.3f s, total loop %.3f s, state=%s)",
+                        "Render call took %.3f s (state=%s)",
+                        render_time,
+                        self.state.value,
+                    )
+                if scheduler_lag > 0.05:
+                    _LOGGER.warning(
+                        "Render loop wake lag %.3f s (requested sleep %.3f s, state=%s)",
                         scheduler_lag,
-                        expected,
-                        loop_delay,
+                        delay,
                         self.state.value,
                     )
         except asyncio.CancelledError:
