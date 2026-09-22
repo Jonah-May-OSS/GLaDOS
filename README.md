@@ -83,7 +83,7 @@ The build uses a 16-LED ring with 5050 addressable RGB LEDs.
 | Hey GLaDOS wake word | ✅ Working |
 | Home Assistant Assist | ✅ Working |
 | GC9A01 display | ✅ Wired/tested |
-| GLaDOS display software | 🚧 Integration complete; hardware/animation testing |
+| GLaDOS display software | ✅ Working; LVA animations and optimized GC9A01 rendering |
 | Servo Driver HAT | 🔧 Integration pending |
 | Servos | 🔧 Integration pending |
 | NeoPixel ring | 🔧 Integration pending |
@@ -368,6 +368,8 @@ Current wiring:
 SPI must be enabled on the Raspberry Pi.
 
 The display has been verified using the official Waveshare Python driver and example.
+
+The display renderer uses the 240×240 GC9A01 window with 12-bit RGB444 pixel transfers. Animation frames are precomputed and only the changed bounding region between frames is transmitted, reducing SPI traffic while preserving the full display area. The speaking animation opens fully before reversing.
 
 The GLaDOS display service runs at boot and follows LVA events:
 
