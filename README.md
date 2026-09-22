@@ -28,19 +28,69 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 
 ## Hardware
 
-Current hardware includes:
+### Core
 
-- Raspberry Pi 4 Model B
-- INNOTRIK USB PnP Sound Device
-- Waveshare 1.28-inch LCD Module
-  - 240×240 IPS
-  - GC9A01 controller
-  - SPI interface
-- Servo Driver HAT
-- DSSERVO digital servos
-- NeoPixel ring
+| Component | Status | Reference |
+|---|---|---|
+| Raspberry Pi 4 Model B | ✅ Installed | [Raspberry Pi](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) |
+| MicroSD storage | ✅ Installed | — |
+| USB-C power supply | ✅ Installed | — |
 
-The display and servo hardware are being integrated incrementally.
+### Audio
+
+| Component | Status | Reference |
+|---|---|---|
+| INNOTRIK USB PnP Sound Device | ✅ Working | — |
+| USB microphone | ✅ Working | Integrated with USB audio device |
+| USB speaker | ✅ Working | Integrated with USB audio device |
+
+### Display
+
+| Component | Status | Reference |
+|---|---|---|
+| Waveshare 1.28-inch LCD Module | ✅ Wired/tested | [Waveshare](https://www.waveshare.com/1.28inch-lcd-module.htm) |
+| GC9A01 240×240 IPS display | ✅ Working | Integrated with display module |
+| SPI interface | ✅ Working | GPIO10/MOSI, GPIO11/SCLK, GPIO8/CE0 |
+
+### Motion
+
+| Component | Status | Reference |
+|---|---|---|
+| Servo Driver HAT | 🔧 Integration pending | — |
+| DSSERVO 25 kg digital servo | 🔧 Pending | — |
+| DSSERVO 35 kg digital servo | 🔧 Pending | — |
+
+The Servo Driver HAT and servos are part of the planned mechanical/animatronic system. Exact component links will be documented once the final hardware configuration is established.
+
+### Lighting
+
+| Component | Status | Reference |
+|---|---|---|
+| NeoPixel ring | 🔧 Integration pending | [Adafruit 24-LED NeoPixel Ring](https://www.adafruit.com/product/1586) |
+
+The exact NeoPixel ring used in the build may differ from the reference part above.
+
+### Mechanical
+
+- GLaDOS head/body components based on **Mr. Volt's** design
+- 3D-printed components
+- Additional mechanical hardware as required by the final assembly
+
+### Current Hardware Status
+
+| Component | Status |
+|---|---|
+| Raspberry Pi 4 | ✅ Installed |
+| USB audio | ✅ Working |
+| Linux Voice Assistant | ✅ Working |
+| Hey GLaDOS wake word | ✅ Working |
+| Home Assistant Assist | ✅ Working |
+| GC9A01 display | ✅ Wired/tested |
+| GLaDOS display software | 🚧 In development |
+| Servo Driver HAT | 🔧 Integration pending |
+| Servos | 🔧 Integration pending |
+| NeoPixel ring | 🔧 Integration pending |
+
 
 ## Voice Assistant
 
