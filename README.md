@@ -62,7 +62,7 @@ The Servo Driver HAT and servos are part of the planned mechanical/animatronic s
 
 | Component | Status | Reference |
 |---|---|---|
-| NeoPixel ring | 🔧 Integration pending | 16× 5050 addressable RGB LEDs |
+| 16× 5050 addressable RGB LED ring | 🔧 Integration pending | [Amazon](https://www.amazon.com/s?k=16+LED+5050+RGB+NeoPixel+ring) |
 
 The build uses a 16-LED ring with 5050 addressable RGB LEDs.
 
