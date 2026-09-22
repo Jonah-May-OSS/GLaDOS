@@ -18,14 +18,17 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install Python dependencies
+        run: uv sync --dev
+
       - name: Ruff lint
-        run: uv run --with ruff --with pillow --with numpy --with websockets ruff check .
+        run: uv run ruff check .
 
       - name: Ruff format
-        run: uv run --with ruff ruff format --check .
+        run: uv run ruff format --check .
 
       - name: ty
-        run: uv run --with ty --with pillow --with numpy --with websockets ty check
+        run: uv run ty check
 
       - name: Compile Python
         run: uv run python -m compileall -q display
