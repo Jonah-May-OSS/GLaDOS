@@ -48,9 +48,7 @@ The Raspberry Pi is intentionally **not** responsible for local STT, LLM inferen
 
 | Component | Status | Reference |
 |---|---|---|
-| Waveshare 1.28-inch LCD Module | ✅ Wired/tested | [Waveshare](https://www.waveshare.com/1.28inch-lcd-module.htm) — SPI, GC9A01, 240×240 IPS |
-| GC9A01 240×240 IPS display | ✅ Working | Integrated with Waveshare SPI module |
-| SPI interface | ✅ Working | GPIO10/MOSI, GPIO11/SCLK, GPIO8/CE0 |
+| Waveshare 1.28-inch LCD Module — SPI / GC9A01 / 240×240 IPS | ✅ Wired/tested | [Waveshare](https://www.waveshare.com/1.28inch-lcd-module.htm) |
 
 ### Motion
 
