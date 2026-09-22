@@ -173,7 +173,6 @@ class GladosDisplay:
             while True:
                 loop_started = time.monotonic()
                 now = loop_started
-                _LOGGER.debug("Render loop: tick")
                 self.render(now)
                 render_finished = time.monotonic()
 
@@ -191,11 +190,6 @@ class GladosDisplay:
                     delay = max(0.001, next_frame_time - time.monotonic())
 
                 before_sleep = time.monotonic()
-                _LOGGER.debug(
-                    "Render loop: sleep %.3f s (render %.1f ms)",
-                    delay,
-                    (render_finished - loop_started) * 1000,
-                )
                 await asyncio.sleep(delay)
 
                 woke = time.monotonic()
