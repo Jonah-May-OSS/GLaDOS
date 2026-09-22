@@ -161,12 +161,27 @@ class GladosDisplay:
             self.set_state(ACTIVE_STATES[event])
 
     async def _render_loop(self) -> None:
-        """Render continuously at the configured frame rate."""
-        interval = 1.0 / max(FPS, 1.0)
-
+        """Render whenever the animation frame is due."""
         while True:
-            self.render()
-            await asyncio.sleep(interval)
+            now = time.monotonic()
+            self.render(now)
+
+            if self.state == DisplayState.ERROR:
+                delay = 0.05
+            else:
+                sequence = SEQUENCES[self.state]
+                elapsed = max(0.0, now - self.state_started)
+                frame = int(elapsed / FRAME_DURATION)
+
+                if self.state == DisplayState.WAKE:
+                    frame = min(frame, len(sequence) - 1)
+                else:
+                    frame %= len(sequence)
+
+                next_frame_time = self.state_started + (frame + 1) * FRAME_DURATION
+                delay = max(0.001, next_frame_time - time.monotonic())
+
+            await asyncio.sleep(delay)
 
     async def run(self) -> None:
         """Receive LVA events while the renderer runs independently."""
