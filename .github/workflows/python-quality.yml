@@ -1,0 +1,34 @@
+name: Python quality
+
+on:
+  push:
+    branches: [main, "ci/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install project and quality tools
+        run: uv sync --dev
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: ty
+        run: uv run ty check
+
+      - name: Compile Python
+        run: uv run python -m compileall -q display
