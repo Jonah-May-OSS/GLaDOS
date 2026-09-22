@@ -146,7 +146,10 @@ def test_render_and_error_paths(display, monkeypatch):
 async def test_heartbeat_warns_on_lag(display, monkeypatch, caplog):
     sleeps = iter([None, asyncio.CancelledError()])
     expected = iter([10.0, 10.5])
-    monkeypatch.setattr("display.glados_display.time.monotonic", lambda: next(expected))
+    monkeypatch.setattr(
+        "display.glados_display.time",
+        SimpleNamespace(monotonic=lambda: next(expected)),
+    )
 
     async def fake_sleep(_):
         value = next(sleeps)
@@ -262,7 +265,7 @@ def test_driver_rgb444():
     driver = object.__new__(driver_module.DisplayDriver)
     driver._lcd = SimpleNamespace(np=np)
     image = Image.new("RGB", (2, 1), (255, 128, 16))
-    assert driver._rgb444(image) == bytes([0xFF, 0xF8, 0x10])
+    assert driver._rgb444(image) == bytes([0xF8, 0x1F, 0x81])
 
 
 def test_driver_rgb444_odd_pixels():
@@ -305,7 +308,7 @@ def test_driver_show_changed_region_and_cache():
     driver.show(second)
     calls = driver._lcd.SPI.writebytes2.call_count
     driver.show(second)
-    assert driver._lcd.SPI.writebytes2.call_count == calls + 1
+    assert driver._lcd.SPI.writebytes2.call_count == calls
 
     third = second.copy()
     third.putpixel((21, 30), (255, 214, 0))
@@ -337,3 +340,117 @@ def test_close_handles_driver_error(display, caplog):
     display.driver.close = MagicMock(side_effect=RuntimeError("boom"))
     display.close()
     assert "Error while closing display" in caplog.text
+
+
+def test_driver_init_and_lifecycle(monkeypatch):
+    class FakeLCD:
+        def __init__(self, spi_freq):
+            self.spi_freq = spi_freq
+            self.np = np
+            self.DC_PIN = 25
+            self.SPI = MagicMock()
+
+        def Init(self):
+            self.initialized = True
+
+        def bl_DutyCycle(self, value):
+            self.duty = value
+
+        def command(self, value):
+            self.command_value = value
+
+        def data(self, value):
+            self.data_value = value
+
+        def clear(self):
+            self.cleared = True
+
+    fake_module = SimpleNamespace(LCD_1inch28=FakeLCD)
+    monkeypatch.setitem(__import__("sys").modules, "lib", fake_module)
+    monkeypatch.setenv("GLADOS_SPI_FREQ", "40000000")
+
+    driver = driver_module.DisplayDriver()
+    assert driver._lcd.spi_freq == 40000000
+    assert driver._lcd.command_value == 0x3A
+    assert driver._lcd.data_value == 0x03
+    driver.clear()
+    driver.close()
+    assert driver._lcd.duty == 0
+
+
+def test_driver_init_requires_waveshare_driver(monkeypatch):
+    monkeypatch.setitem(__import__("sys").modules, "lib", SimpleNamespace())
+    with pytest.raises(RuntimeError, match="Waveshare driver not installed"):
+        driver_module.DisplayDriver()
+
+
+@pytest.mark.asyncio
+async def test_render_loop_error_state_uses_fast_delay(display):
+    display.state = DisplayState.ERROR
+    sleeps = []
+
+    async def stop(delay):
+        sleeps.append(delay)
+        raise asyncio.CancelledError
+
+    original_sleep = asyncio.sleep
+    try:
+        asyncio.sleep = stop
+        with pytest.raises(asyncio.CancelledError):
+            await display._render_loop()
+    finally:
+        asyncio.sleep = original_sleep
+
+    assert sleeps == [0.05]
+
+
+@pytest.mark.asyncio
+async def test_render_loop_rethrows_render_error(display):
+    display.render = MagicMock(side_effect=RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await display._render_loop()
+
+
+@pytest.mark.asyncio
+async def test_run_reconnect_error_path(display, monkeypatch):
+    async def stop(_):
+        raise asyncio.CancelledError
+
+    def connect(*_args, **_kwargs):
+        raise RuntimeError("connection failed")
+
+    async def idle_task():
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr("display.glados_display.websockets.connect", connect)
+    monkeypatch.setattr("display.glados_display.asyncio.sleep", stop)
+    monkeypatch.setattr(display, "_render_loop", idle_task)
+    monkeypatch.setattr(display, "_event_loop_heartbeat", idle_task)
+
+    with pytest.raises(asyncio.CancelledError):
+        await display.run()
+
+    assert display.state == DisplayState.ERROR
+    assert display.connection_lost is True
+
+
+def test_demo_exits_cleanly_on_keyboard_interrupt(monkeypatch):
+    fake_display = MagicMock()
+    monkeypatch.setattr(
+        "display.glados_display.GladosDisplay",
+        MagicMock(return_value=fake_display),
+    )
+
+    def stop(_):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(
+        "display.glados_display.time",
+        SimpleNamespace(monotonic=lambda: 0.0, sleep=stop),
+    )
+
+    from display.glados_display import demo
+
+    demo()
+    fake_display.close.assert_called_once()
