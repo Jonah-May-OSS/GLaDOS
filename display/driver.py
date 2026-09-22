@@ -67,36 +67,42 @@ class DisplayDriver:
         start = time.monotonic()
         pixels = self._lcd.np.asarray(image)
 
-        # Only transmit pixels that changed since the previous frame.
-        # The first frame is necessarily a full-frame update.
-        if not hasattr(self, "_last_pixels"):
-            x0, y0, x1, y1 = 0, 0, self.WIDTH, self.HEIGHT
-        else:
-            changed = self._lcd.np.any(pixels != self._last_pixels, axis=2)
-            ys, xs = self._lcd.np.nonzero(changed)
-            if len(xs) == 0:
-                return
+        # Precompute the changed region and packed transfer buffer for each
+        # animation frame. Frames are immutable, so the expensive comparison,
+        # crop, and RGB444 conversion only happen once per image transition.
+        key = id(image)
+        if key not in self._frame_buffers:
+            if not hasattr(self, "_last_pixels"):
+                x0, y0, x1, y1 = 0, 0, self.WIDTH, self.HEIGHT
+            else:
+                changed = self._lcd.np.any(pixels != self._last_pixels, axis=2)
+                ys, xs = self._lcd.np.nonzero(changed)
+                if len(xs) == 0:
+                    self._last_pixels = pixels.copy()
+                    return
 
-            x0, x1 = int(xs.min()), int(xs.max()) + 1
-            y0, y1 = int(ys.min()), int(ys.max()) + 1
+                x0, x1 = int(xs.min()), int(xs.max()) + 1
+                y0, y1 = int(ys.min()), int(ys.max()) + 1
 
-            # RGB444 packs two pixels into three bytes. Keep the rectangle
-            # at an even pixel count so the transfer ends cleanly.
-            if ((x1 - x0) * (y1 - y0)) & 1:
-                if x1 < self.WIDTH:
-                    x1 += 1
-                elif x0 > 0:
-                    x0 -= 1
-                else:
-                    y1 += 1
+                # RGB444 packs two pixels into three bytes. Keep the rectangle
+                # at an even pixel count so the transfer ends cleanly.
+                if ((x1 - x0) * (y1 - y0)) & 1:
+                    if x1 < self.WIDTH:
+                        x1 += 1
+                    elif x0 > 0:
+                        x0 -= 1
+                    else:
+                        y1 += 1
 
-        crop = image.crop((x0, y0, x1, y1))
-        buffer = self._rgb444(crop)
+            crop = image.crop((x0, y0, x1, y1))
+            buffer = self._rgb444(crop)
+            self._frame_buffers[key] = (x0, y0, x1, y1, buffer)
+            self._last_pixels = pixels.copy()
 
+        x0, y0, x1, y1, buffer = self._frame_buffers[key]
         self._lcd.SetWindows(x0, y0, x1, y1)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
         self._lcd.SPI.writebytes2(buffer)
-        self._last_pixels = pixels.copy()
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
