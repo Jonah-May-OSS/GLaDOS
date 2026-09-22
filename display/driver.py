@@ -66,23 +66,18 @@ class DisplayDriver:
 
         start = time.monotonic()
 
-        # The aperture artwork occupies a centered 220x220 area. Update only
-        # that area; the surrounding 10-pixel border remains black.
-        update_size = 220
-        offset = (self.WIDTH - update_size) // 2
-        cropped = image.crop((offset, offset, offset + update_size, offset + update_size))
-
         key = id(image)
         if key not in self._frame_buffers:
-            self._frame_buffers[key] = self._rgb444(cropped)
+            self._frame_buffers[key] = self._rgb444(image)
 
-        self._lcd.SetWindows(offset, offset, offset + update_size, offset + update_size)
+        # Always program the complete 240x240 address window.
+        self._lcd.SetWindows(0, 0, self.WIDTH, self.HEIGHT)
         self._lcd.digital_write(self._lcd.DC_PIN, True)
         self._lcd.SPI.writebytes2(self._frame_buffers[key])
 
         elapsed = time.monotonic() - start
         _LOGGER.debug(
-            "LCD 220x220 RGB444 transfer: %.1f ms (%d bytes)",
+            "LCD full-frame RGB444 transfer: %.1f ms (%d bytes)",
             elapsed * 1000,
             len(self._frame_buffers[key]),
         )
